@@ -4,6 +4,11 @@ Make your own **PCM sample cards for the Roland U-110** (and the other machines 
 U-20, U-220, D-70, CM-32P, CM-64, MV-30, Rhodes 660/760). This is a free, open replacement for the custom-card
 tools that never shipped.
 
+> **Made by JSW together with Claude (Anthropic's AI).** Claude wrote the code and did the format analysis
+> (descrambling, sample coding, tables). JSW built the hardware, burned and tested every card on a real U-110,
+> and made the debugging calls that cracked it: the known-good D-70 ROM control and the CD4069 noise fix.
+> Reverse-engineered and shipped in one day.
+
 Drop in WAV files, set root notes, key ranges and loops, press **Build**. You get a 512 KB image to burn on a
 flash chip (e.g. SST39SF040) sitting in a card-slot adapter. Tested on a real U-110: custom multisampled,
 looping and one-shot tones play correctly.
