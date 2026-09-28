@@ -13,6 +13,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import u110build as B
 import u110card as UC
+import u110wave as WV
 
 APP = 'U110 RomHex Studio'
 EXT = '.u110proj'
@@ -61,6 +62,8 @@ def apply_theme(root):
     root.option_add('*TCombobox*Listbox.selectForeground', '#111')
     st.configure('TCheckbutton', background=PANEL, foreground=TEXT, indicatorbackground=RECESS, indicatorforeground=AMBER)
     st.map('TCheckbutton', background=[('active', PANEL)])
+    st.configure('TRadiobutton', background=PANEL, foreground=TEXT, indicatorbackground=RECESS, indicatorforeground=AMBER)
+    st.map('TRadiobutton', background=[('active', PANEL)])
     st.configure('Horizontal.TProgressbar', background=AMBER, troughcolor=RECESS, bordercolor=EDGE, lightcolor=AMBER, darkcolor=AMBER)
     st.configure('TScrollbar', background='#4a4d53', troughcolor=RECESS, arrowcolor=TEXT)
     st.configure('Dim.TLabel', foreground=DIM)
@@ -464,6 +467,7 @@ class Studio(tk.Tk):
         mb.add_cascade(label='File', menu=f)
         t = tk.Menu(mb, tearoff=0)
         t.add_command(label='Add Tone', command=self.tone_add)
+        t.add_command(label='Wavetable...', accelerator='Ctrl+W', command=self.wavetable)
         t.add_command(label='Duplicate Tone', command=self.tone_dup)
         t.add_command(label='Delete Tone', command=self.tone_del)
         t.add_command(label='Move Up', command=lambda: self.tone_move(-1))
@@ -480,7 +484,8 @@ class Studio(tk.Tk):
         mb.add_cascade(label='Help', menu=h)
         self.config(menu=mb)
         for key, fn in (('<Control-n>', self.cmd_new), ('<Control-o>', self.cmd_open), ('<Control-s>', self.cmd_save),
-                        ('<Control-b>', self.cmd_build), ('<Control-i>', self.zone_add)):
+                        ('<Control-b>', self.cmd_build), ('<Control-i>', self.zone_add),
+                        ('<Control-w>', self.wavetable)):
             self.bind(key, lambda e, fn=fn: fn())
 
     def build_ui(self):
@@ -851,6 +856,117 @@ class Studio(tk.Tk):
         if 0 <= j < len(self.proj['tones']):
             L = self.proj['tones']; L[i], L[j] = L[j], L[i]
             self.mark(); self.refresh_all(j)
+
+    def wave_dir(self):
+        d = os.path.join(os.path.dirname(self.path), 'waves') if self.path else \
+            os.path.join(os.path.expanduser('~'), 'Documents', 'U110 RomHex Studio', 'waves')
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def wavetable(self):
+        """single-cycle waves -> looped wave tones, or one scan-morph tone through them"""
+        w = tk.Toplevel(self); w.title('Wavetable'); w.configure(bg=PANEL); w.transient(self); w.resizable(False, False)
+        try:
+            dark_titlebar(w)
+        except Exception:
+            pass
+        src = [('shape', n) for n in WV.SHAPES]          # (kind, name-or-path)
+        f = ttk.Frame(w, padding=10); f.pack(fill='both')
+        ttk.Label(f, text='WAVES  (ctrl/shift-click to pick several; scan uses list order)', style='Silk.TLabel').grid(row=0, column=0, columnspan=3, sticky='w')
+        lb = tk.Listbox(f, selectmode='extended', height=14, width=34, bg=RECESS, fg=TEXT, selectbackground=AMBER,
+                        selectforeground='#111', highlightthickness=0, relief='flat', exportselection=False)
+        lb.grid(row=1, column=0, columnspan=2, sticky='nsew', pady=4)
+
+        def fill():
+            lb.delete(0, 'end')
+            for k, n in src:
+                lb.insert('end', ('~ ' + n) if k == 'shape' else os.path.basename(n))
+        fill()
+        mode = tk.StringVar(value='tones'); secs = tk.StringVar(value='0.75'); lp = tk.StringVar(value='hold last wave')
+        name = tk.StringVar(value='')
+        info = ttk.Label(f, text='', style='Dim.TLabel')
+
+        def upd(*_):
+            n = len(lb.curselection())
+            try:
+                sv = float(secs.get())
+            except ValueError:
+                sv = 0.75
+            if mode.get() == 'tones':
+                info.config(text='%d tone(s), ~4 KB each (4 zones C1-C7, band-limited)' % n)
+            else:
+                info.config(text='1 tone sweeping %d waves, ~%d KB (3 zones C1-C7)' % (n, int(sv * 32 * 3)))
+
+        def add_files():
+            fs = filedialog.askopenfilenames(parent=w, title='Single-cycle WAVs (e.g. AKWF)', filetypes=[('Audio', '*.wav *.aif *.aiff *.flac')])
+            for p_ in fs:
+                src.append(('file', p_))
+            fill()
+            if fs:
+                lb.selection_set(len(src) - len(fs), 'end')
+            upd()
+
+        def move(d):
+            sel = list(lb.curselection())
+            if len(sel) != 1 or not 0 <= sel[0] + d < len(src):
+                return
+            i = sel[0]; src[i], src[i + d] = src[i + d], src[i]; fill(); lb.selection_set(i + d)
+
+        bf = ttk.Frame(f); bf.grid(row=1, column=2, sticky='n', padx=(8, 0), pady=4)
+        ttk.Button(bf, text='Add WAVs...', command=add_files).pack(fill='x')
+        ttk.Button(bf, text='Up', command=lambda: move(-1)).pack(fill='x', pady=(8, 2))
+        ttk.Button(bf, text='Down', command=lambda: move(1)).pack(fill='x')
+        mf = ttk.Labelframe(f, text=' MODE ', padding=6); mf.grid(row=2, column=0, columnspan=3, sticky='ew', pady=(6, 0))
+        ttk.Radiobutton(mf, text='One looped tone per wave', variable=mode, value='tones').grid(row=0, column=0, columnspan=4, sticky='w')
+        ttk.Radiobutton(mf, text='Scan morph: one tone sweeping through the waves', variable=mode, value='scan').grid(row=1, column=0, columnspan=4, sticky='w')
+        ttk.Label(mf, text='sweep s').grid(row=2, column=0, sticky='w', padx=(18, 4))
+        ttk.Spinbox(mf, from_=0.2, to=2.0, increment=0.05, textvariable=secs, width=6).grid(row=2, column=1, sticky='w')
+        ttk.Combobox(mf, textvariable=lp, values=['hold last wave', 'ping-pong sweep'], state='readonly', width=15).grid(row=2, column=2, padx=6)
+        ttk.Label(f, text='name').grid(row=3, column=0, sticky='w', pady=(8, 0))
+        ttk.Entry(f, textvariable=name, width=12).grid(row=3, column=1, sticky='w', pady=(8, 0))
+        info.grid(row=4, column=0, columnspan=3, sticky='w', pady=(6, 0))
+        lb.bind('<<ListboxSelect>>', upd); mode.trace_add('write', upd); secs.trace_add('write', upd)
+
+        def label(i):
+            k, n = src[i]
+            return n if k == 'shape' else os.path.splitext(os.path.basename(n))[0]
+
+        def safe(t):
+            return ''.join(ch for ch in t if ch.isalnum() or ch in '_-')[:24] or 'wave'
+
+        def make():
+            sel = list(lb.curselection())
+            if not sel:
+                messagebox.showinfo(APP, 'Pick at least one wave.', parent=w); return
+            scan = mode.get() == 'scan'
+            if scan and len(sel) < 2:
+                messagebox.showinfo(APP, 'Scan morph needs 2 or more waves.', parent=w); return
+            if not scan and len(self.proj['tones']) + len(sel) > B.MAX_TONES:
+                messagebox.showwarning(APP, 'A card holds %d tones.' % B.MAX_TONES, parent=w); return
+            try:
+                cyc = [WV.shape(src[i][1]) if src[i][0] == 'shape' else WV.load_cycle(src[i][1]) for i in sel]
+                out = self.wave_dir()
+                nm = name.get().strip().upper()
+                if scan:
+                    self.tone_add((nm or 'SCAN ' + label(sel[0]).upper())[:10],
+                                  WV.scan_tone(cyc, out, 'scan_' + '_'.join(safe(label(i))[:6] for i in sel)[:40],
+                                               min(2.0, max(0.2, float(secs.get()))),
+                                               'last' if lp.get().startswith('hold') else 'pingpong'))
+                else:
+                    for i, c in zip(sel, cyc):
+                        t = nm if nm and len(sel) == 1 else ('WT ' + label(i).upper())
+                        self.tone_add(t[:10], WV.wave_tone(c, out, 'wt_' + safe(label(i))))
+            except Exception as e:
+                messagebox.showerror(APP, 'Wavetable failed:\n%s' % e, parent=w); return
+            self.status('Wave files written to %s' % out)
+            w.destroy()
+
+        bb = ttk.Frame(f); bb.grid(row=5, column=0, columnspan=3, sticky='e', pady=(10, 0))
+        ttk.Button(bb, text='Cancel', command=w.destroy).pack(side='right')
+        ttk.Button(bb, text='Create', command=make).pack(side='right', padx=6)
+        lb.selection_set(2); upd()
+        w.grab_set()
+        return w
 
     # ---------------------------------------------------------------- zones
     def zone_add(self):
