@@ -13,6 +13,18 @@ Drop in WAV files, set root notes, key ranges and loops, press **Build**. You ge
 flash chip (e.g. SST39SF040) sitting in a card-slot adapter. Tested on a real U-110: custom multisampled,
 looping and one-shot tones play correctly.
 
+## Screenshots
+
+![U110 RomHex Studio](docs/screenshot.png)
+
+*Styled after the U-110's front panel: backlit LCD, memory LEDs, a waveform editor with start/loop/end markers,
+and colour-coded key zones on the keyboard. Click a key to hear it exactly as the U-110 will play it.*
+
+![Card adapter schematic](docs/adapter_schematic.png)
+
+*The card-slot adapter used for testing: slot header to SST39SF040, with a CD4069 inverting the active-high card
+select.*
+
 ## Quick start (Windows)
 
 1. Run **`U110RomHexStudio.exe`**. No install is needed. The exe is unsigned, so Windows may show "Windows
