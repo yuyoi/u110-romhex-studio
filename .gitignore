@@ -1,0 +1,7 @@
+# built binaries go in GitHub Releases, not the repo
+U110CardStudio.exe
+*.exe
+__pycache__/
+*.pyc
+*.selftest.txt
+*_wavs/

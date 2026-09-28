@@ -1,0 +1,2 @@
+a415d4ab8177a9f2d4e12582c72b360ed18b5f8cc1a4d40022ae8b9cdf7bc74e *U110CardStudio.exe
+2f0f55baf6d4737abd2ac909a749f8105450b92aab592afda3cac6cbe3e3c00a *examples/DEMO_CARD_01_BURN.bin

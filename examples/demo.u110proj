@@ -1,0 +1,102 @@
+{
+ "card_name": "DEMO CARD 01",
+ "card_no": 13,
+ "rate": "auto",
+ "tones": [
+  {
+   "name": "SAW LEAD",
+   "zones": [
+    {
+     "path": "demo_wavs\\SAW_C2.wav",
+     "root": 36,
+     "hi": 48,
+     "loop": "loop",
+     "start": 0,
+     "end": 62031,
+     "loop_start": 22250,
+     "xfade_ms": 0
+    },
+    {
+     "path": "demo_wavs\\SAW_C4.wav",
+     "root": 60,
+     "hi": 72,
+     "loop": "loop",
+     "start": 0,
+     "end": 61694,
+     "loop_start": 22082,
+     "xfade_ms": 0
+    },
+    {
+     "path": "demo_wavs\\SAW_C6.wav",
+     "root": 84,
+     "hi": 127,
+     "loop": "loop",
+     "start": 0,
+     "end": 61736,
+     "loop_start": 22039,
+     "xfade_ms": 0
+    }
+   ]
+  },
+  {
+   "name": "SOFT PAD",
+   "zones": [
+    {
+     "path": "demo_wavs\\PAD_A3.wav",
+     "root": 57,
+     "hi": 127,
+     "loop": "loop",
+     "start": 0,
+     "end": 287783,
+     "loop_start": 119728,
+     "xfade_ms": 40
+    }
+   ]
+  },
+  {
+   "name": "KICK",
+   "zones": [
+    {
+     "path": "demo_wavs\\KICK.wav",
+     "root": 60,
+     "hi": 127,
+     "loop": "off",
+     "start": 0,
+     "end": 17640,
+     "loop_start": 0,
+     "xfade_ms": 0
+    }
+   ]
+  },
+  {
+   "name": "SNARE",
+   "zones": [
+    {
+     "path": "demo_wavs\\SNARE.wav",
+     "root": 60,
+     "hi": 127,
+     "loop": "off",
+     "start": 0,
+     "end": 17640,
+     "loop_start": 0,
+     "xfade_ms": 0
+    }
+   ]
+  },
+  {
+   "name": "HAT",
+   "zones": [
+    {
+     "path": "demo_wavs\\HAT.wav",
+     "root": 60,
+     "hi": 127,
+     "loop": "off",
+     "start": 0,
+     "end": 17640,
+     "loop_start": 0,
+     "xfade_ms": 0
+    }
+   ]
+  }
+ ]
+}
