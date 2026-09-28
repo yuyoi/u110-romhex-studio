@@ -184,12 +184,12 @@ def char_k(z):
     """minimum rate shift a character forces"""
     c, a = z.get('char', 'studio'), z.get('amt', 50)
     if c == 'dustbox':
-        return 3                                   # 26909 Hz, next to the SP-1200's 26040
+        return max(3, z.get('rate_k', 0))          # 26909 Hz, next to the SP-1200's 26040
     if c == '8bit':
         return 6 + int(round(a / 100 * 6))         # 22.6 kHz .. 16 kHz
     if c == 'chiptune':
         return 12 + int(round(a / 100 * 12))       # 16 kHz .. 8 kHz
-    return 0
+    return z.get('rate_k', 0)                      # wavetable lo-rate zones
 
 
 def sync_char(project):

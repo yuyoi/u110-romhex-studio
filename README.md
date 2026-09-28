@@ -15,6 +15,16 @@ Drop in WAV files, set root notes, key ranges and loops, press **Build**. You ge
 flash chip (e.g. SST39SF040) sitting in a card-slot adapter. Tested on a real U-110: custom multisampled,
 looping and one-shot tones play correctly.
 
+## Demo
+
+**[Listen: u110_demo.mp3](docs/demo/u110_demo.mp3)** (1:42, recorded from a real U-110 playing a custom card)
+
+> **⚠ AUDIO WARNING: turn your volume down first.** This demo has loud, harsh, glitchy digital sounds.
+
+- **0:00: three samples:** custom multisampled tones from a card built with this tool.
+- **Then: wavetable:** single-cycle waves and scan-morph tones (Tone → Wavetable). The stepped scan plus the
+  U-110's 8-bit delta coding gives a tunable, glitchy "pleasant malfunction" sound.
+
 ## Screenshots
 
 ![U110 RomHex Studio](docs/screenshot.png)

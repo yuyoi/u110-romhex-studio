@@ -970,6 +970,13 @@ class Studio(tk.Tk):
         ttk.Label(mf, text='sweep s').grid(row=2, column=0, sticky='w', padx=(18, 4))
         ttk.Spinbox(mf, from_=0.2, to=2.0, increment=0.05, textvariable=secs, width=6).grid(row=2, column=1, sticky='w')
         ttk.Combobox(mf, textvariable=lp, values=['hold last wave', 'ping-pong sweep'], state='readonly', width=15).grid(row=2, column=2, padx=6)
+        steps = tk.StringVar(value='smooth'); zn = tk.StringVar(value='3  C1-B8'); lo = tk.BooleanVar(value=False)
+        ttk.Label(mf, text='steps').grid(row=3, column=0, sticky='w', padx=(18, 4), pady=(4, 0))
+        ttk.Combobox(mf, textvariable=steps, values=['smooth', '2', '3', '4', '6', '8', '12', '16', '24', '32'], state='readonly', width=7).grid(row=3, column=1, sticky='w', pady=(4, 0))
+        ttk.Label(mf, text='few steps = glitch columns', style='Dim.TLabel').grid(row=3, column=2, columnspan=2, sticky='w', padx=6, pady=(4, 0))
+        ttk.Label(mf, text='zones').grid(row=4, column=0, sticky='w', padx=(18, 4), pady=(4, 0))
+        ttk.Combobox(mf, textvariable=zn, values=['3  C1-B8', '2  C1-B5', '1  up to B4'], state='readonly', width=11).grid(row=4, column=1, columnspan=2, sticky='w', pady=(4, 0))
+        ttk.Checkbutton(mf, text='lo-rate 16 kHz (half memory, grittier)', variable=lo).grid(row=5, column=0, columnspan=4, sticky='w', padx=(18, 0), pady=(4, 0))
         nf = ttk.Frame(f); nf.grid(row=4, column=0, columnspan=3, sticky='w', pady=(8, 0))
         ttk.Label(nf, text='name').pack(side='left')
         ttk.Entry(nf, textvariable=name, width=12).pack(side='left', padx=6)
@@ -984,8 +991,10 @@ class Studio(tk.Tk):
             if mode.get() == 'tones':
                 info.config(text='%d tone(s), ~4 KB each (4 zones C1-C7, band-limited)' % n)
             else:
-                info.config(text='1 tone sweeping %d waves, ~%d KB (3 zones C1-C7)' % (n, int(sv * 32 * 3)))
-        mode.trace_add('write', upd); secs.trace_add('write', upd)
+                kb = WV.scan_kb(sv, int(zn.get()[0]), lo.get())
+                info.config(text='1 tone sweeping %d waves: %d KB = %d%% of the card' % (n, kb, round(kb * 1024 * 100 / 507891)))
+        for v in (mode, secs, zn, lo):
+            v.trace_add('write', upd)
 
         def safe(t):
             return ''.join(ch for ch in t if ch.isalnum() or ch in '_-')[:24] or 'wave'
@@ -1006,7 +1015,9 @@ class Studio(tk.Tk):
                     self.tone_add((nm or 'SCAN ' + picked[0][0].upper())[:10],
                                   WV.scan_tone(cyc, out, 'scan_' + '_'.join(safe(it[0])[:6] for it in picked)[:40],
                                                min(2.0, max(0.2, float(secs.get()))),
-                                               'last' if lp.get().startswith('hold') else 'pingpong'))
+                                               'last' if lp.get().startswith('hold') else 'pingpong',
+                                               zones=int(zn.get()[0]), steps=0 if steps.get() == 'smooth' else int(steps.get()),
+                                               lo_rate=lo.get()))
                 else:
                     for it, c in zip(picked, cyc):
                         t = nm if nm and len(picked) == 1 else ('WT ' + it[0].upper())
@@ -1021,7 +1032,7 @@ class Studio(tk.Tk):
         ttk.Button(bb, text='Create', command=make).pack(side='right', padx=6)
         fill(); upd()
         w.grab_set()
-        w._t = dict(cat=cat, fill=fill, lb=lb, add=add, mode=mode, make=make, picked=picked)   # for the self-test
+        w._t = dict(cat=cat, fill=fill, lb=lb, add=add, mode=mode, make=make, picked=picked, steps=steps, zn=zn, lo=lo, secs=secs, info=info)   # for the self-test
         return w
 
     # ---------------------------------------------------------------- zones

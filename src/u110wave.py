@@ -58,10 +58,10 @@ def _harmonics(cycle):
     return np.fft.rfft(c) / len(c)
 
 
-def _render(H, n, cycles, top_hz):
+def _render(H, n, cycles, top_hz, sr=SR):
     """`cycles` periods in `n` samples, keeping only harmonics that stay under Nyquist at top_hz"""
-    f0 = SR * cycles / n
-    hmax = max(1, int(SR * 0.45 / top_hz))
+    f0 = sr * cycles / n
+    hmax = max(1, int(sr * 0.45 / top_hz))
     H = H[:hmax + 1].copy()
     k = np.arange(len(H))
     out = np.zeros(n)
@@ -70,9 +70,9 @@ def _render(H, n, cycles, top_hz):
     return out, f0
 
 
-def _fit(root, max_cycles=16):
+def _fit(root, max_cycles=16, sr=SR):
     """whole cycles + length closest to the root pitch; returns (samples, cycles)"""
-    per = SR / freq(root)
+    per = sr / freq(root)
     best = None
     for c in range(1, max_cycles + 1):
         n = round(per * c)
@@ -89,9 +89,18 @@ def _norm(x):
     return x / m * 0.95
 
 
-def _write(path, x):
+def _unique(path):
+    """never overwrite a wave another tone already uses"""
+    base, ext = os.path.splitext(path)
+    i = 2
+    while os.path.exists(path):
+        path = '%s_%d%s' % (base, i, ext); i += 1
+    return path
+
+
+def _write(path, x, sr=SR):
     import soundfile as sf
-    sf.write(path, np.clip(x, -1, 1), SR, subtype='PCM_16')
+    sf.write(path, np.clip(x, -1, 1), sr, subtype='PCM_16')
 
 
 def wave_tone(cycle, out_dir, name, roots=ROOTS):
@@ -103,39 +112,62 @@ def wave_tone(cycle, out_dir, name, roots=ROOTS):
         body, _ = _render(H, n, c, freq(r + 23))
         body = _norm(body)
         x = np.concatenate([body, body])          # lead block + loop block
-        p = os.path.join(out_dir, '%s_%d.wav' % (name, r))
+        p = _unique(os.path.join(out_dir, '%s_%d.wav' % (name, r)))
         _write(p, x)
         zones.append(dict(path=p, root=r, hi=r + 23, loop='loop', start=0, end=len(x), loop_start=n, xfade_ms=0))
     zones[-1]['hi'] = 127
     return zones
 
 
-def scan_tone(cycles, out_dir, name, seconds=1.5, loop='last', roots=(24, 48, 72)):
-    """morph through the waves over `seconds`; loop='last' holds the final wave, 'pingpong' sweeps back and forth"""
+SCAN_ZONES = {3: (24, 48, 72), 2: (36, 60), 1: (48,)}
+
+
+def scan_kb(seconds, zones=3, lo_rate=False):
+    return seconds * (16 if lo_rate else 32) * zones
+
+
+def scan_tone(cycles, out_dir, name, seconds=0.75, loop='last', zones=3, steps=0, lo_rate=False):
+    """morph through the waves over `seconds`.
+    steps: 0 = smooth (each block crossfades into the next); N = N stepped 'columns' (glitchy jumps)
+    zones: 3 / 2 / 1 stored roots (fewer = less memory, top keys cap earlier)
+    lo_rate: store at 16 kHz (half the memory, darker/grittier; zone gets a -12 st rate shift)
+    loop: 'last' holds the final wave, 'pingpong' sweeps back and forth"""
+    sr = SR // 2 if lo_rate else SR
     Hs = [_harmonics(c) for c in cycles]
     L = max(len(h) for h in Hs)
     Hs = [np.pad(h, (0, L - len(h))) for h in Hs]
-    zones = []
-    for r in roots:
-        n, c = _fit(r)
+    W = len(Hs) - 1
+
+    def at(p):                                        # harmonics at sweep position p in 0..W
+        i = min(int(p), max(W - 1, 0))
+        f = p - i if W else 0
+        return Hs[i] * (1 - f) + Hs[min(i + 1, W)] * f
+
+    out = []
+    for r in SCAN_ZONES[zones]:
+        n, c = _fit(r, sr=sr)
         top = freq(r + 23)
-        steps = max(2, int(seconds * SR / n))        # blocks of `c` cycles across the sweep
-        pos = np.linspace(0, len(Hs) - 1, steps)
-        blocks = []
-        for p in pos:
-            i = min(int(p), len(Hs) - 2) if len(Hs) > 1 else 0
-            f = p - i if len(Hs) > 1 else 0
-            H = Hs[i] * (1 - f) + Hs[min(i + 1, len(Hs) - 1)] * f
-            blocks.append(_render(H, n, c, top)[0])
-        last = blocks[-1]
-        x = np.concatenate(blocks + ([last] if loop == 'last' else []))
-        x = _norm(x)
-        p = os.path.join(out_dir, '%s_%d.wav' % (name, r))
-        _write(p, x)
-        if loop == 'last':
-            z = dict(loop='loop', loop_start=len(x) - n)
+        nb = max(2, int(seconds * sr / n))            # blocks of `c` cycles across the sweep
+        if steps:                                     # quantise to `steps` columns
+            pos = np.floor(np.arange(nb) * steps / nb) / max(steps - 1, 1) * W
         else:
-            z = dict(loop='pingpong', loop_start=n)
-        zones.append(dict(path=p, root=r, hi=r + 23, start=0, end=len(x), xfade_ms=0, **z))
-    zones[-1]['hi'] = 127
-    return zones
+            pos = np.linspace(0, W, nb + 1)
+        blocks = []
+        for j in range(nb):
+            a = _render(at(pos[j]), n, c, top, sr)[0]
+            if not steps:                             # smooth: fade into the next position
+                b = _render(at(pos[j + 1]), n, c, top, sr)[0]
+                t = np.linspace(0, 1, n, endpoint=False)
+                a = a * (1 - t) + b * t
+            blocks.append(a)
+        last = _render(at(W), n, c, top, sr)[0]
+        x = _norm(np.concatenate(blocks + ([last] if loop == 'last' else [])))
+        p = _unique(os.path.join(out_dir, '%s_%d%s.wav' % (name, r, '_lo' if lo_rate else '')))
+        _write(p, x, sr)
+        z = dict(loop='loop', loop_start=len(x) - n) if loop == 'last' else dict(loop='pingpong', loop_start=n)
+        zd = dict(path=p, root=r, hi=r + 23, start=0, end=len(x), xfade_ms=0, **z)
+        if lo_rate:
+            zd['rate_k'] = 12
+        out.append(zd)
+    out[-1]['hi'] = 127
+    return out
