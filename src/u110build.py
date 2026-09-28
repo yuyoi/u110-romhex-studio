@@ -26,7 +26,7 @@ BANKS = [(0x4001, 0x40000), (0x40004, 0x80000)]
 NULL_LEN = 8
 NAME_CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-/+*.,:'  # U-110 LCD font (fw 0x93B3)
 MAGIC = b'RolandU-110 N\xb1S\xac'
-LOOP_MODES = {'loop': 0, 'off': 1, 'pingpong': 2}
+LOOP_MODES = {'loop': 0, 'off': 1, 'pingpong': 2, 'mode3': 3}  # mode 3: undocumented, never used by Roland
 # Entry templates taken from Roland's SN-U110-13 (proven on real hardware)
 TONE_FIXED = bytes.fromhex('0000400000')              # bytes 0x0B-0x0F of a single-layer tone
 TONE_BLK27 = bytes.fromhex('7f7f7f7f7f7f005c80')
@@ -374,6 +374,8 @@ def build(project, cache, progress=None):
             if root > 127:
                 rep.append('WARNING %s: root %d + shift %d > 127, clamped' % (os.path.basename(z['path']), z['root'], blobs[b][3]))
                 root = 127
+            if z['hi'] >= root + 24:
+                rep.append("NOTE %s: keys above %s exceed the chip's ~2-octave pitch-up limit" % (os.path.basename(z['path']), note_name(root + 23)))
             ek = (b, root)
             if ek not in eidx:
                 eidx[ek] = len(entries); entries.append(ek)
@@ -471,7 +473,7 @@ def import_card(path, out_dir):
             if s is None or s['start'] not in wavs:
                 continue
             n = s['length']
-            mode = {'loop': 'loop', 'one-shot': 'off', 'ping-pong': 'pingpong'}.get(s['loop'], 'off')
+            mode = {'loop': 'loop', 'one-shot': 'off', 'ping-pong': 'pingpong', '?3': 'mode3'}.get(s['loop'], 'off')
             zones.append(dict(path=wavs[s['start']], root=s['note'], hi=splits[j] if j < len(splits) else 127,
                               loop=mode, start=0, end=n, loop_start=(n - s['looplen']) if mode != 'off' else 0, xfade_ms=0))
         if zones:

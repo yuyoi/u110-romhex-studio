@@ -156,7 +156,7 @@ def simulate(d, ls, mode, step, seconds):
     pos = np.arange(int(32000 * seconds)) * step
     if mode == 'off' or ls is None or ls >= L - 2:
         pos = pos[pos < L - 1]
-    elif mode == 'loop':
+    elif mode in ('loop', 'mode3'):  # mode3 is undocumented: previewed as a forward loop
         pos = np.where(pos < L - 1, pos, ls + np.mod(pos - ls, (L - 1 - ls)))
     else:
         per = 2 * (L - 1 - ls)
@@ -565,7 +565,7 @@ class Studio(tk.Tk):
         self.v_hiname = tk.StringVar()
         ttk.Label(ed, textvariable=self.v_hiname, width=5).pack(side='left', padx=(2, 10))
         ttk.Label(ed, text='LOOP', style='Silk.TLabel').pack(side='left')
-        lc = ttk.Combobox(ed, textvariable=self.v_loop, values=['off', 'loop', 'pingpong'], width=9, state='readonly')
+        lc = ttk.Combobox(ed, textvariable=self.v_loop, values=['off', 'loop', 'pingpong', 'mode3'], width=9, state='readonly')
         lc.pack(side='left', padx=(2, 10))
         lc.bind('<<ComboboxSelected>>', lambda e: self.on_edit())
         ttk.Label(ed, text='CROSSFADE MS', style='Silk.TLabel').pack(side='left')
@@ -790,7 +790,7 @@ class Studio(tk.Tk):
             ti = self.proj['tones'].index(t) + 1
             if z:
                 zi = t['zones'].index(z) + 1
-                lp = {'off': '1SHOT', 'loop': 'LOOP', 'pingpong': 'PPONG'}[z['loop']] + ' ' + B.CHARACTERS[t.get('character', 'studio')][0][:5]
+                lp = {'off': '1SHOT', 'loop': 'LOOP', 'pingpong': 'PPONG', 'mode3': 'MODE3'}[z['loop']] + ' ' + B.CHARACTERS[t.get('character', 'studio')][0][:5]
                 l2 = 'T%03d %-10s Z%02d/%02d %-4s %s' % (ti, t['name'].upper()[:10], zi, len(t['zones']), B.note_name(z['root']), lp)
             else:
                 l2 = 'T%03d %-10s NO ZONES - ADD WAVS' % (ti, t['name'].upper()[:10])
