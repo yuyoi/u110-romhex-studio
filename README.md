@@ -1,4 +1,4 @@
-# U110 RomHex Studio
+# U110 RomHex Studio  (WIP)
 
 Make your own **PCM sample cards for the Roland U-110** (and the other machines that read SN-U110 cards:
 U-20, U-220, D-70, CM-32P, CM-64, MV-30, Rhodes 660/760). This is a free, open replacement for the custom-card
@@ -58,6 +58,18 @@ The memory bar shows how much is used.
 Images from MAME's `sn-u110-xx.bin` set have address lines **A8..A15 reversed** compared with the card slot.
 Burned as-is on a straight-wired adapter, they load with garbled names and no sound. This app always writes
 **connector order**, the right order for a straight adapter. `u110card.py convert` fixes MAME dumps.
+
+## Status: work in progress 🚧
+
+This is an early release. It works, and it's tested on a real U-110, but expect rough edges and changes.
+
+**Planned:**
+- **A reprogrammable card:** an RP2040 (or similar) on a custom PCB, either as a card or fitted inside the
+  unit, so you can load new sounds over USB without pulling and burning chips.
+- Dual-layer, velocity-switch and drum-kit tone types.
+- Confirmed support on the U-20, U-220 and D-70.
+
+Ideas, bug reports and test results are very welcome. Open an issue.
 
 ## Legal
 
