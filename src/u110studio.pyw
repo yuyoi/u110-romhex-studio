@@ -2,7 +2,7 @@
 
 Tones (left) hold up to 12 key zones; each zone is a WAV with root note, key range and loop.
 Waveform: drag the S (start), L (loop start) and E (end) markers, wheel = zoom, Shift+wheel = pan,
-double-click = fit. Keyboard: click a key to hear it the way the U-110 will play it.
+double-click = set start, then end (alternating), right-click = fit. Keyboard: click a key to hear it the way the U-110 will play it.
 Build writes a burn-ready .bin (connector order) for your EPROM / flash programmer.
 """
 import os, sys, threading, queue, traceback
@@ -180,9 +180,32 @@ class WaveView(tk.Canvas):
         self.bind('<B1-Motion>', self.on_drag)
         self.bind('<ButtonRelease-1>', self.on_release)
         self.bind('<MouseWheel>', self.on_wheel)
-        self.bind('<Double-Button-1>', lambda e: self.fit())
+        self.bind('<Double-Button-1>', self.on_double)
+        self.bind('<Button-3>', lambda e: self.fit())
+        self.next_set = 'start'
+
+    def on_double(self, ev):
+        """double-click: place start, next double-click places end, alternating (loop start is dragged)"""
+        if self.x is None:
+            return
+        self.drag = None
+        z, f = self.z, self.snap(max(0, min(len(self.x), self.px2f(ev.x))))
+        gap = int(self.sr * 0.002)
+        if self.next_set == 'start':
+            z['start'] = max(0, min(f, z['end'] - gap))
+            self.next_set = 'end'
+        else:
+            z['end'] = min(len(self.x), max(f, z['start'] + gap))
+            self.next_set = 'start'
+        if z['loop'] != 'off':
+            z['loop_start'] = min(max(z['loop_start'], z['start'] + 1), z['end'] - gap)
+        self.redraw()
+        self.app.status('Double-click again to set the %s' % self.next_set.upper())
+        self.app.show_zone_numbers()
+        self.app.zone_changed()
 
     def set_zone(self, z):
+        self.next_set = 'start'
         self.z = z
         if z is None:
             self.x = None
@@ -576,7 +599,7 @@ class Studio(tk.Tk):
         self.v_nums = tk.StringVar()
         ttk.Label(zf, textvariable=self.v_nums, style='Dim.TLabel').pack(anchor='w', pady=(4, 0))
 
-        wf = ttk.Labelframe(right, text=' WAVE   drag S / L / E  ·  wheel zoom  ·  shift+wheel pan  ·  double-click fit ', padding=6)
+        wf = ttk.Labelframe(right, text=' WAVE   drag S / L / E  ·  wheel zoom  ·  shift+wheel pan  ·  double-click = start / end  ·  right-click fit ', padding=6)
         wf.pack(fill='both', expand=True, pady=(6, 0))
         self.wave = WaveView(wf, self)
         self.wave.pack(fill='both', expand=True)
