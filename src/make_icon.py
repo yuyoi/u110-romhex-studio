@@ -3,8 +3,8 @@ Run once with Pillow installed; the app itself only needs the generated files.""
 import io, struct
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
-FACE, FACE_HI, EDGE = (40, 42, 46), (62, 65, 70), (18, 19, 21)
-LCD_A, LCD_B, LCD_TXT = (190, 206, 70), (150, 170, 40), (30, 42, 14)
+FACE, FACE_HI, EDGE = (29, 34, 40), (42, 48, 56), (10, 12, 14)
+LCD_A, LCD_B, LCD_TXT = (148, 236, 68), (92, 196, 28), (16, 40, 10)
 CARD, CARD_SH, RED = (205, 208, 212), (150, 153, 158), (214, 52, 40)
 
 
