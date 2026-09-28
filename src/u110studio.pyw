@@ -1,4 +1,4 @@
-"""U-110 Card Studio - build Roland SN-U110 style PCM cards from WAV files.
+"""U110 RomHex Studio - build Roland SN-U110 style PCM cards from WAV files.
 
 Tones (left) hold up to 12 key zones; each zone is a WAV with root note, key range and loop.
 Waveform: drag the S (start), L (loop start) and E (end) markers, wheel = zoom, Shift+wheel = pan,
@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import u110build as B
 import u110card as UC
 
-APP = 'U-110 Card Studio'
+APP = 'U110 RomHex Studio'
 EXT = '.u110proj'
 # hardware look: charcoal panel, backlit yellow-green LCD, red keys, amber selection
 PANEL, PANEL_HI, RECESS, EDGE = '#2b2d31', '#383b40', '#1b1c1f', '#121315'
@@ -401,7 +401,7 @@ class Studio(tk.Tk):
         self.minsize(1100, 740)
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('U110CardStudio')  # own taskbar icon
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('U110RomHexStudio')  # own taskbar icon
         except Exception:
             pass
         try:
@@ -467,7 +467,7 @@ class Studio(tk.Tk):
         plate = ttk.Frame(head)
         plate.pack(side='left', padx=(0, 16))
         ttk.Label(plate, text='U-110', style='Title.TLabel').pack(anchor='w')
-        ttk.Label(plate, text='PCM CARD STUDIO', style='Sub.TLabel').pack(anchor='w')
+        ttk.Label(plate, text='ROMHEX STUDIO', style='Sub.TLabel').pack(anchor='w')
         self.lcd = LCD(head, cols=40)
         self.lcd.pack(side='left')
         mf = ttk.Frame(head)

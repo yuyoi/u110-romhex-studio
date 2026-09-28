@@ -1,4 +1,4 @@
-# U-110 Card Studio
+# U110 RomHex Studio
 
 Make your own **PCM sample cards for the Roland U-110** (and the other machines that read SN-U110 cards:
 U-20, U-220, D-70, CM-32P, CM-64, MV-30, Rhodes 660/760). This is a free, open replacement for the custom-card
@@ -10,7 +10,7 @@ looping and one-shot tones play correctly.
 
 ## Quick start (Windows)
 
-1. Run **`U110CardStudio.exe`**. No install is needed. The exe is unsigned, so Windows may show "Windows
+1. Run **`U110RomHexStudio.exe`**. No install is needed. The exe is unsigned, so Windows may show "Windows
    protected your PC": click **More info > Run anyway**. It takes a few seconds to start.
    Or, from source: install Python 3.10+, run `pip install -r src/requirements.txt`, then `run_from_source.bat`.
 2. **File > Open Project** and pick `examples/demo.u110proj` to see a finished card, or start fresh:
