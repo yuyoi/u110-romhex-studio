@@ -1,5 +1,7 @@
 # Hardware: getting a flash chip into the card slot
 
+![Adapter schematic](adapter_schematic.png)
+
 ## U-110 card slot (from the U-110 service notes, connector CN1-4, Roland part 7508096A, 34 pins)
 
 | Slot pin | Signal | Notes |

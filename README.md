@@ -63,7 +63,7 @@ The memory bar shows how much is used.
 - `src/u110card.py` on the command line: `info`, `wavs` (extract samples) and `convert` (MAME card dump to
   burnable connector order).
 - `docs/FORMAT.md`: the reverse-engineered card format.
-- `docs/HARDWARE.md`: card-slot pinout, adapter wiring and the byte-order pitfall.
+- `docs/HARDWARE.md` + `docs/adapter_schematic.png`: card-slot pinout, adapter wiring and the byte-order pitfall.
 
 ## Important: byte order
 
