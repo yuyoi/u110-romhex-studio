@@ -17,10 +17,10 @@ import u110card as UC
 APP = 'U110 RomHex Studio'
 EXT = '.u110proj'
 # hardware look: charcoal panel, backlit yellow-green LCD, red keys, amber selection
-PANEL, PANEL_HI, RECESS, EDGE = '#2b2d31', '#383b40', '#1b1c1f', '#121315'
-TEXT, DIM, SILK = '#dcdcd6', '#8b9096', '#c7c7bf'
-RED, AMBER = '#d6342a', '#e0a526'
-LCD_A, LCD_B, LCD_CELL, LCD_INK = '#bccd48', '#98ac2b', '#afc03c', '#1e2a0e'
+PANEL, PANEL_HI, RECESS, EDGE = '#1d2228', '#2a3038', '#12161a', '#0a0c0e'   # U-110 front: blue-black
+TEXT, DIM, SILK = '#eef1f3', '#8a96a0', '#ffffff'
+RED, AMBER, BLUE = '#c8322a', '#6ec8e8', '#6ec8e8'   # logo light blue is the accent
+LCD_A, LCD_B, LCD_CELL, LCD_INK = '#8e9d74', '#72825c', '#86956c', '#1b2214'   # grey-olive LCD
 WAVE_BG, WAVE_FG, WAVE_FILL, LOOP_BG, OUT_BG, GRID = '#0c0f0d', '#8fe05a', '#2b5a20', '#172a19', '#17181b', '#161d17'
 MARK = {'start': '#5aa9ff', 'loop_start': AMBER, 'end': RED}
 ZONE_COLS = ['#4f7fc0', '#c07a3f', '#4fae6a', '#9a5fc0', '#b8a53a', '#3fa6b0']
@@ -40,15 +40,15 @@ def apply_theme(root):
                  selectbackground=AMBER, selectforeground='#111', insertcolor=TEXT, arrowcolor=TEXT,
                  font=('Segoe UI', 9))
     st.configure('TLabelframe', background=PANEL, bordercolor='#46494e')
-    st.configure('TLabelframe.Label', background=PANEL, foreground=SILK, font=('Segoe UI', 8, 'bold'))
-    st.configure('TButton', background='#4a4d53', foreground=TEXT, bordercolor=EDGE, lightcolor='#5d6167',
-                 darkcolor='#303236', padding=(9, 3))
-    st.map('TButton', background=[('pressed', '#2e3034'), ('active', '#585c62')])
-    st.configure('Build.TButton', background=RED, foreground='white', font=('Segoe UI', 11, 'bold'),
-                 padding=(18, 10), lightcolor='#ea5a50', darkcolor='#8e1f18')
-    st.map('Build.TButton', background=[('pressed', '#9e241c'), ('active', '#e44a3f')])
+    st.configure('TLabelframe.Label', background=PANEL, foreground=SILK, font=('Arial', 8, 'bold'))
+    st.configure('TButton', background='#3a3f46', foreground=TEXT, bordercolor=EDGE, lightcolor='#50565e',
+                 darkcolor='#1a1d21', padding=(9, 3), font=('Arial', 9, 'bold'))
+    st.map('TButton', background=[('pressed', '#23272c'), ('active', '#474d55')])
+    st.configure('Build.TButton', background='#3a4048', foreground=BLUE, font=('Bahnschrift', 13, 'bold'),
+                 padding=(20, 10), lightcolor='#4d545d', darkcolor='#16191d', bordercolor=BLUE)
+    st.map('Build.TButton', background=[('pressed', '#23272c'), ('active', '#454c55')])
     st.configure('Treeview', background=RECESS, fieldbackground=RECESS, foreground=TEXT, rowheight=21, bordercolor=EDGE)
-    st.map('Treeview', background=[('selected', AMBER)], foreground=[('selected', '#111')])
+    st.map('Treeview', background=[('selected', '#2f6f8a')], foreground=[('selected', '#ffffff')])
     st.configure('Treeview.Heading', background=PANEL_HI, foreground=SILK, font=('Segoe UI', 8, 'bold'), relief='flat')
     st.map('Treeview.Heading', background=[('active', '#44474c')])
     for w in ('TEntry', 'TSpinbox', 'TCombobox'):
@@ -64,9 +64,9 @@ def apply_theme(root):
     st.configure('Horizontal.TProgressbar', background=AMBER, troughcolor=RECESS, bordercolor=EDGE, lightcolor=AMBER, darkcolor=AMBER)
     st.configure('TScrollbar', background='#4a4d53', troughcolor=RECESS, arrowcolor=TEXT)
     st.configure('Dim.TLabel', foreground=DIM)
-    st.configure('Silk.TLabel', foreground=SILK, font=('Segoe UI', 8, 'bold'))
-    st.configure('Title.TLabel', foreground=TEXT, font=('Arial Black', 20))
-    st.configure('Sub.TLabel', foreground=SILK, font=('Segoe UI', 9, 'bold'))
+    st.configure('Silk.TLabel', foreground=SILK, font=('Arial', 8, 'bold'))
+    st.configure('Title.TLabel', foreground=BLUE, font=('Bahnschrift SemiLight SemiConde', 30))
+    st.configure('Sub.TLabel', foreground=BLUE, font=('Bahnschrift', 10))
     st.configure('Status.TFrame', background=RECESS)
     st.configure('Status.TLabel', background=RECESS, foreground=DIM)
 
@@ -345,7 +345,7 @@ class KeyView(tk.Canvas):
         top, H = 26, self.winfo_height()
         W = self.winfo_width()
         self.hit = []
-        self.create_rectangle(0, top - 3, W, top, fill=RED, outline='')  # felt strip above the keys
+        self.create_rectangle(0, top - 3, W, top, fill=RED, outline='')  # felt strip (Roland red, as on the cards)
         for n in range(128):
             x0, x1, blk = g[n]
             if not blk:
