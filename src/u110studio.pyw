@@ -858,10 +858,23 @@ class Studio(tk.Tk):
             self.mark(); self.refresh_all(j)
 
     def wave_dir(self):
-        d = os.path.join(os.path.dirname(self.path), 'waves') if self.path else \
-            os.path.join(os.path.expanduser('~'), 'Documents', 'U110 RomHex Studio', 'waves')
+        d = os.path.join(os.path.dirname(self.path), 'wavetables') if self.path else \
+            os.path.join(os.path.expanduser('~'), 'Documents', 'U110 RomHex Studio', 'wavetables')
         os.makedirs(d, exist_ok=True)
         return d
+
+    def wave_lib(self):
+        """bundled AKWF library: {category: [(name, index)]}, waves array"""
+        if not hasattr(self, '_wlib'):
+            try:
+                z = np.load(res(os.path.join('wavetables', 'akwf.npz')))
+                cats = {}
+                for i, (c, n) in enumerate(zip(z['cats'], z['names'])):
+                    cats.setdefault(str(c), []).append((str(n), i))
+                self._wlib = (cats, z['waves'])
+            except Exception:
+                self._wlib = ({}, None)
+        return self._wlib
 
     def wavetable(self):
         """single-cycle waves -> looped wave tones, or one scan-morph tone through them"""
@@ -870,24 +883,100 @@ class Studio(tk.Tk):
             dark_titlebar(w)
         except Exception:
             pass
-        src = [('shape', n) for n in WV.SHAPES]          # (kind, name-or-path)
-        f = ttk.Frame(w, padding=10); f.pack(fill='both')
-        ttk.Label(f, text='WAVES  (ctrl/shift-click to pick several; scan uses list order)', style='Silk.TLabel').grid(row=0, column=0, columnspan=3, sticky='w')
-        lb = tk.Listbox(f, selectmode='extended', height=14, width=34, bg=RECESS, fg=TEXT, selectbackground=AMBER,
-                        selectforeground='#111', highlightthickness=0, relief='flat', exportselection=False)
-        lb.grid(row=1, column=0, columnspan=2, sticky='nsew', pady=4)
+        cats, waves = self.wave_lib()
+        SHAPES = 'Built-in shapes'
+        catnames = [SHAPES] + sorted(cats, key=lambda c: (not c[:4].isdigit(), c.lower()))
+        items, picked = [], []                          # items: (label, kind, ref) of the browser; picked: same, ordered
 
-        def fill():
-            lb.delete(0, 'end')
-            for k, n in src:
-                lb.insert('end', ('~ ' + n) if k == 'shape' else os.path.basename(n))
-        fill()
+        def cycle(it):
+            _, k, r = it
+            if k == 'shape':
+                return WV.shape(r)
+            if k == 'akwf':
+                return waves[r].astype(np.float64) / 32767
+            return WV.load_cycle(r)
+
+        lbopt = dict(bg=RECESS, fg=TEXT, selectbackground=AMBER, selectforeground='#111', highlightthickness=0,
+                     relief='flat', exportselection=False, width=26, height=16)
+        f = ttk.Frame(w, padding=10); f.pack(fill='both')
+        ttk.Label(f, text='LIBRARY  (click = listen, double-click = add)', style='Silk.TLabel').grid(row=0, column=0, sticky='w')
+        ttk.Label(f, text='SELECTED  (scan uses this order)', style='Silk.TLabel').grid(row=0, column=2, sticky='w')
+        cat = tk.StringVar(value=SHAPES)
+        cb = ttk.Combobox(f, textvariable=cat, values=catnames, state='readonly', width=24)
+        cb.grid(row=1, column=0, sticky='w', pady=(4, 2))
+        lb = tk.Listbox(f, selectmode='extended', **lbopt); lb.grid(row=2, column=0, sticky='nsew')
+        sb = tk.Listbox(f, selectmode='browse', **lbopt); sb.grid(row=2, column=2, sticky='nsew', rowspan=1)
+
+        def fill(*_):
+            items.clear(); lb.delete(0, 'end')
+            c = cat.get()
+            if c == SHAPES:
+                items.extend((n, 'shape', n) for n in WV.SHAPES)
+            else:
+                items.extend((n, 'akwf', i) for n, i in cats.get(c, []))
+            for it in items:
+                lb.insert('end', it[0])
+
+        def refill_sel():
+            sb.delete(0, 'end')
+            for it in picked:
+                sb.insert('end', it[0])
+            upd()
+
+        def add(*_):
+            for i in lb.curselection():
+                picked.append(items[i])
+            refill_sel()
+
+        def add_files():
+            fs = filedialog.askopenfilenames(parent=w, title='Single-cycle WAVs', filetypes=[('Audio', '*.wav *.aif *.aiff *.flac')])
+            picked.extend((os.path.splitext(os.path.basename(x))[0], 'file', x) for x in fs)
+            refill_sel()
+
+        def remove():
+            for i in reversed(sb.curselection()):
+                del picked[i]
+            refill_sel()
+
+        def move(d):
+            sel = sb.curselection()
+            if sel and 0 <= sel[0] + d < len(picked):
+                i = sel[0]; picked[i], picked[i + d] = picked[i + d], picked[i]; refill_sel(); sb.selection_set(i + d)
+
+        def listen(*_):
+            sel = lb.curselection()
+            if sel:
+                c = cycle(items[sel[-1]])
+                H = WV._harmonics(c)
+                n, k = WV._fit(48)
+                y = WV._norm(WV._render(H, n, k, WV.freq(48))[0])
+                reps = int(0.6 * WV.SR / n) + 1
+                y = np.tile(y, reps) * np.minimum(1, np.linspace(8, 0, n * reps))
+                self._play(y * 0.7, WV.SR)
+
+        cb.bind('<<ComboboxSelected>>', fill); lb.bind('<<ListboxSelect>>', listen); lb.bind('<Double-Button-1>', add)
+        mid = ttk.Frame(f); mid.grid(row=2, column=1, padx=8)
+        ttk.Button(mid, text='Add >', command=add).pack(fill='x')
+        ttk.Button(mid, text='< Remove', command=remove).pack(fill='x', pady=(4, 12))
+        ttk.Button(mid, text='Up', command=lambda: move(-1)).pack(fill='x')
+        ttk.Button(mid, text='Down', command=lambda: move(1)).pack(fill='x', pady=(2, 12))
+        ttk.Button(mid, text='WAV files...', command=add_files).pack(fill='x')
+
         mode = tk.StringVar(value='tones'); secs = tk.StringVar(value='0.75'); lp = tk.StringVar(value='hold last wave')
         name = tk.StringVar(value='')
-        info = ttk.Label(f, text='', style='Dim.TLabel')
+        mf = ttk.Labelframe(f, text=' MODE ', padding=6); mf.grid(row=3, column=0, columnspan=3, sticky='ew', pady=(8, 0))
+        ttk.Radiobutton(mf, text='One looped tone per selected wave', variable=mode, value='tones').grid(row=0, column=0, columnspan=4, sticky='w')
+        ttk.Radiobutton(mf, text='Scan morph: one tone sweeping through the selected waves', variable=mode, value='scan').grid(row=1, column=0, columnspan=4, sticky='w')
+        ttk.Label(mf, text='sweep s').grid(row=2, column=0, sticky='w', padx=(18, 4))
+        ttk.Spinbox(mf, from_=0.2, to=2.0, increment=0.05, textvariable=secs, width=6).grid(row=2, column=1, sticky='w')
+        ttk.Combobox(mf, textvariable=lp, values=['hold last wave', 'ping-pong sweep'], state='readonly', width=15).grid(row=2, column=2, padx=6)
+        nf = ttk.Frame(f); nf.grid(row=4, column=0, columnspan=3, sticky='w', pady=(8, 0))
+        ttk.Label(nf, text='name').pack(side='left')
+        ttk.Entry(nf, textvariable=name, width=12).pack(side='left', padx=6)
+        info = ttk.Label(f, text='', style='Dim.TLabel'); info.grid(row=5, column=0, columnspan=3, sticky='w', pady=(6, 0))
 
         def upd(*_):
-            n = len(lb.curselection())
+            n = len(picked)
             try:
                 sv = float(secs.get())
             except ValueError:
@@ -896,76 +985,43 @@ class Studio(tk.Tk):
                 info.config(text='%d tone(s), ~4 KB each (4 zones C1-C7, band-limited)' % n)
             else:
                 info.config(text='1 tone sweeping %d waves, ~%d KB (3 zones C1-C7)' % (n, int(sv * 32 * 3)))
-
-        def add_files():
-            fs = filedialog.askopenfilenames(parent=w, title='Single-cycle WAVs (e.g. AKWF)', filetypes=[('Audio', '*.wav *.aif *.aiff *.flac')])
-            for p_ in fs:
-                src.append(('file', p_))
-            fill()
-            if fs:
-                lb.selection_set(len(src) - len(fs), 'end')
-            upd()
-
-        def move(d):
-            sel = list(lb.curselection())
-            if len(sel) != 1 or not 0 <= sel[0] + d < len(src):
-                return
-            i = sel[0]; src[i], src[i + d] = src[i + d], src[i]; fill(); lb.selection_set(i + d)
-
-        bf = ttk.Frame(f); bf.grid(row=1, column=2, sticky='n', padx=(8, 0), pady=4)
-        ttk.Button(bf, text='Add WAVs...', command=add_files).pack(fill='x')
-        ttk.Button(bf, text='Up', command=lambda: move(-1)).pack(fill='x', pady=(8, 2))
-        ttk.Button(bf, text='Down', command=lambda: move(1)).pack(fill='x')
-        mf = ttk.Labelframe(f, text=' MODE ', padding=6); mf.grid(row=2, column=0, columnspan=3, sticky='ew', pady=(6, 0))
-        ttk.Radiobutton(mf, text='One looped tone per wave', variable=mode, value='tones').grid(row=0, column=0, columnspan=4, sticky='w')
-        ttk.Radiobutton(mf, text='Scan morph: one tone sweeping through the waves', variable=mode, value='scan').grid(row=1, column=0, columnspan=4, sticky='w')
-        ttk.Label(mf, text='sweep s').grid(row=2, column=0, sticky='w', padx=(18, 4))
-        ttk.Spinbox(mf, from_=0.2, to=2.0, increment=0.05, textvariable=secs, width=6).grid(row=2, column=1, sticky='w')
-        ttk.Combobox(mf, textvariable=lp, values=['hold last wave', 'ping-pong sweep'], state='readonly', width=15).grid(row=2, column=2, padx=6)
-        ttk.Label(f, text='name').grid(row=3, column=0, sticky='w', pady=(8, 0))
-        ttk.Entry(f, textvariable=name, width=12).grid(row=3, column=1, sticky='w', pady=(8, 0))
-        info.grid(row=4, column=0, columnspan=3, sticky='w', pady=(6, 0))
-        lb.bind('<<ListboxSelect>>', upd); mode.trace_add('write', upd); secs.trace_add('write', upd)
-
-        def label(i):
-            k, n = src[i]
-            return n if k == 'shape' else os.path.splitext(os.path.basename(n))[0]
+        mode.trace_add('write', upd); secs.trace_add('write', upd)
 
         def safe(t):
             return ''.join(ch for ch in t if ch.isalnum() or ch in '_-')[:24] or 'wave'
 
         def make():
-            sel = list(lb.curselection())
-            if not sel:
-                messagebox.showinfo(APP, 'Pick at least one wave.', parent=w); return
+            if not picked:
+                messagebox.showinfo(APP, 'Add at least one wave to SELECTED.', parent=w); return
             scan = mode.get() == 'scan'
-            if scan and len(sel) < 2:
+            if scan and len(picked) < 2:
                 messagebox.showinfo(APP, 'Scan morph needs 2 or more waves.', parent=w); return
-            if not scan and len(self.proj['tones']) + len(sel) > B.MAX_TONES:
+            if not scan and len(self.proj['tones']) + len(picked) > B.MAX_TONES:
                 messagebox.showwarning(APP, 'A card holds %d tones.' % B.MAX_TONES, parent=w); return
             try:
-                cyc = [WV.shape(src[i][1]) if src[i][0] == 'shape' else WV.load_cycle(src[i][1]) for i in sel]
+                cyc = [cycle(it) for it in picked]
                 out = self.wave_dir()
                 nm = name.get().strip().upper()
                 if scan:
-                    self.tone_add((nm or 'SCAN ' + label(sel[0]).upper())[:10],
-                                  WV.scan_tone(cyc, out, 'scan_' + '_'.join(safe(label(i))[:6] for i in sel)[:40],
+                    self.tone_add((nm or 'SCAN ' + picked[0][0].upper())[:10],
+                                  WV.scan_tone(cyc, out, 'scan_' + '_'.join(safe(it[0])[:6] for it in picked)[:40],
                                                min(2.0, max(0.2, float(secs.get()))),
                                                'last' if lp.get().startswith('hold') else 'pingpong'))
                 else:
-                    for i, c in zip(sel, cyc):
-                        t = nm if nm and len(sel) == 1 else ('WT ' + label(i).upper())
-                        self.tone_add(t[:10], WV.wave_tone(c, out, 'wt_' + safe(label(i))))
+                    for it, c in zip(picked, cyc):
+                        t = nm if nm and len(picked) == 1 else ('WT ' + it[0].upper())
+                        self.tone_add(t[:10], WV.wave_tone(c, out, 'wt_' + safe(it[0])))
             except Exception as e:
                 messagebox.showerror(APP, 'Wavetable failed:\n%s' % e, parent=w); return
             self.status('Wave files written to %s' % out)
             w.destroy()
 
-        bb = ttk.Frame(f); bb.grid(row=5, column=0, columnspan=3, sticky='e', pady=(10, 0))
+        bb = ttk.Frame(f); bb.grid(row=6, column=0, columnspan=3, sticky='e', pady=(10, 0))
         ttk.Button(bb, text='Cancel', command=w.destroy).pack(side='right')
         ttk.Button(bb, text='Create', command=make).pack(side='right', padx=6)
-        lb.selection_set(2); upd()
+        fill(); upd()
         w.grab_set()
+        w._t = dict(cat=cat, fill=fill, lb=lb, add=add, mode=mode, make=make, picked=picked)   # for the self-test
         return w
 
     # ---------------------------------------------------------------- zones
