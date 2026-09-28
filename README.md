@@ -67,3 +67,7 @@ share cards containing sounds you have the rights to. Format knowledge builds on
 drivers (BSD-3-Clause) and the U-110 service notes.
 
 License: MIT (see `LICENSE`).
+
+---
+
+**Thanks for enjoying, and God bless you!** — JSW
