@@ -31,6 +31,18 @@ looping and one-shot tones play correctly.
 4. On the U-110, go to EDIT > PATCH > PART > BAS and change the tone group from `I` to the slot holding the
    card. Insert and remove cards with the power off.
 
+## Character modes (per tone)
+
+| Mode | Sound | Memory |
+|---|---|---|
+| **STUDIO** | clean, filtered resample | 100% |
+| **CRYSTAL** | look-ahead encoder, slightly cleaner, slower build | 100% |
+| **DUSTBOX** | SP-style lo-fi: ~26 kHz, no anti-alias filter, drive | ~88% |
+| **8-BIT** | early 8-bit sampler: 256 steps, 22-16 kHz, no filter | ~70% |
+| **CHIPTUNE** | retro game: 6-4 bit, 16-8 kHz, sample & hold | ~50% or less |
+
+**Amount** sets drive, rate or crush. Playback is always 12-bit, because that's what the U-110's sound chip outputs.
+
 ## Limits (set by the card format)
 
 | | |

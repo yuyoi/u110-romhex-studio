@@ -170,10 +170,38 @@ def auto_loop(z, cache, min_loop_s=0.08):
 
 
 # ---------------------------------------------------------------- render + encode
+# ---- character modes (per tone; copied onto its zones as z['char'] / z['amt'] 0-100) ----
+CHARACTERS = {                 # key: (display name, description)
+    'studio':   ('STUDIO',   'clean: filtered resample, fast encoder'),
+    'crystal':  ('CRYSTAL',  'HQ: look-ahead encoder, slightly cleaner (~+1 dB), ~7x slower build'),
+    'dustbox':  ('DUSTBOX',  'SP lo-fi: ~26 kHz, no anti-alias filter, drive (amount = drive)'),
+    '8bit':     ('8-BIT',    'early 8-bit sampler: 256 steps, 22->16 kHz, no filter (amount = rate)'),
+    'chiptune': ('CHIPTUNE', 'retro game: 16->8 kHz, 6->4 bit, sample & hold (amount = crush)'),
+}
+
+
+def char_k(z):
+    """minimum rate shift a character forces"""
+    c, a = z.get('char', 'studio'), z.get('amt', 50)
+    if c == 'dustbox':
+        return 3                                   # 26909 Hz, next to the SP-1200's 26040
+    if c == '8bit':
+        return 6 + int(round(a / 100 * 6))         # 22.6 kHz .. 16 kHz
+    if c == 'chiptune':
+        return 12 + int(round(a / 100 * 12))       # 16 kHz .. 8 kHz
+    return 0
+
+
+def sync_char(project):
+    for t in project['tones']:
+        for z in t['zones']:
+            z['char'], z['amt'] = t.get('character', 'studio'), int(t.get('amount', 50))
+
+
 def zone_k(z, cache, k_global):
     x, sr = cache.get(z['path'])
     n = z['end'] - z['start']
-    k = k_global
+    k = max(k_global, char_k(z))
     while k < 60 and n * rate_for(k) / sr + LEAD > MAX_LEN:
         k += 1
     return k
@@ -189,8 +217,19 @@ def render_zone(z, cache, k):
         if c > 8:
             t = np.linspace(0, np.pi / 2, c)
             seg[-c:] = seg[-c:] * np.cos(t) + seg[ls - c:ls] * np.sin(t)
+    ch, amt = z.get('char', 'studio'), z.get('amt', 50) / 100
     r = rate_for(k)
-    y = resample(seg, sr, r)
+    if ch == 'dustbox':  # hot input: soft saturation before the converter
+        g = 1 + 4 * amt
+        seg = np.tanh(g * seg / (np.max(np.abs(seg)) or 1)) / np.tanh(g)
+    if ch in ('dustbox', '8bit', 'chiptune'):  # no anti-alias filter: plain sample & hold decimation
+        idx = (np.arange(int(len(seg) * r / sr)) * sr / r).astype(int)
+        y = seg[np.minimum(idx, len(seg) - 1)]
+    else:
+        y = resample(seg, sr, r)
+    if ch in ('8bit', 'chiptune'):  # 8 bit / 6..4 bit steps
+        lv = 127 if ch == '8bit' else 2 ** (6 - int(round(amt * 2)) - 1) - 1
+        y = np.round(y / (np.max(np.abs(y)) or 1) * lv) / lv
     y = y[:MAX_LEN - LEAD]
     if ls is not None:
         ls = int(round(ls * r / sr))
@@ -198,13 +237,41 @@ def render_zone(z, cache, k):
     return y, ls
 
 
-def encode_zone(y, ls, mode, gain):
+def encode_hq(target, beam=12):
+    """look-ahead (beam search) DPCM encoder: minimises total squared error over the whole sample"""
+    dvs, order = uc._DV_SORTED, uc._ORDER
+    n = len(target)
+    acc = np.zeros(1, np.int64); cost = np.zeros(1, np.float64)
+    codes = np.zeros((n, beam), np.uint8); par = np.zeros((n, beam), np.int16)
+    width = np.zeros(n, np.int16)
+    for t in range(n):
+        want = target[t] - acc
+        j = np.searchsorted(dvs, want)
+        cand = np.stack([j - 2, j - 1, j, j + 1], 1).clip(0, 255)          # (B,4) code indices
+        na = np.clip(acc[:, None] + dvs[cand], -0x7FF, 0x7FF)
+        nc = cost[:, None] + (na - target[t]) ** 2
+        na, nc, cf = na.ravel(), nc.ravel(), cand.ravel()
+        pf = np.repeat(np.arange(len(acc)), 4)
+        o = np.lexsort((nc, na))                                          # best cost per accumulator value
+        keep = o[np.r_[True, na[o][1:] != na[o][:-1]]]
+        keep = keep[np.argsort(nc[keep])[:beam]]
+        w = len(keep)
+        acc, cost = na[keep], nc[keep]
+        codes[t, :w] = order[cf[keep]]; par[t, :w] = pf[keep]; width[t] = w
+    out = np.empty(n, np.uint8)
+    b = int(np.argmin(cost))
+    for t in range(n - 1, -1, -1):
+        out[t] = codes[t, b]; b = par[t, b]
+    return out
+
+
+def encode_zone(y, ls, mode, gain, hq=False):
     t = np.clip(np.round(y * gain), -2000, 2000).astype(np.int32)
     if mode == 'off':  # one-shot: end at zero
         f = min(64, len(t))
         t[-f:] = (t[-f:] * np.linspace(1, 0, f)).astype(np.int32)
     tgt = np.concatenate([np.zeros(LEAD, np.int32), t])
-    enc = uc.encode(tgt)
+    enc = encode_hq(tgt) if hq else uc.encode(tgt)
     enc[:LEAD] = 0
     if mode != 'off':
         enc = uc.close_loop(enc, ls + LEAD)
@@ -228,8 +295,9 @@ def pack(sizes):
 def akey(z):
     """zones with the same audio key share one stored sample (Roland reuses samples across tones)"""
     lp = z['loop']
+    ch = z.get('char', 'studio')
     return (z['path'], z['start'], z['end'], lp, z['loop_start'] if lp != 'off' else 0,
-            z.get('xfade_ms', 0) if lp == 'loop' else 0)
+            z.get('xfade_ms', 0) if lp == 'loop' else 0, ch, z.get('amt', 50) if ch in ('dustbox', '8bit', 'chiptune') else 0)
 
 
 def unique_audio(project):
@@ -242,6 +310,7 @@ def unique_audio(project):
 
 def plan(project, cache):
     """choose the global rate shift k; returns (k, used bytes, fits)"""
+    sync_char(project)
     uz = list(unique_audio(project).values())
     want = project.get('rate', 'auto')
     ks = range(0, 25) if want == 'auto' else [int(want)]
@@ -273,6 +342,7 @@ def build(project, cache, progress=None):
 
     # 1. render each unique audio once; gain = the quietest tone gain among the tones using it,
     #    so every tone keeps its zones' relative levels and nothing clips
+    sync_char(project)
     uz = unique_audio({'tones': tones})
     rend = {}
     for key, z in uz.items():
@@ -286,7 +356,7 @@ def build(project, cache, progress=None):
     blobs, bidx = [], {}
     for n_done, (key, (kz, y, ls)) in enumerate(rend.items()):
         bidx[key] = len(blobs)
-        blobs.append((encode_zone(y, ls, key[3], gain[key]), key[3], (ls + LEAD) if ls is not None else None, kz))
+        blobs.append((encode_zone(y, ls, key[3], gain[key], hq=key[6] == 'crystal'), key[3], (ls + LEAD) if ls is not None else None, kz))
         if progress:
             progress(n_done + 1, len(rend))
     pos = pack([len(b[0]) for b in blobs])

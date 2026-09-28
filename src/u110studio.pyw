@@ -520,6 +520,20 @@ class Studio(tk.Tk):
         vcmd10 = (self.register(lambda s: len(s) <= 10), '%P')
         ttk.Entry(nf, textvariable=self.v_tname, width=12, validate='key', validatecommand=vcmd10).pack(side='left', padx=4)
         self.v_tname.trace_add('write', lambda *a: self.on_tname())
+        cf = ttk.Frame(lf); cf.pack(fill='x', pady=(8, 0))
+        ttk.Label(cf, text='CHARACTER', style='Silk.TLabel').pack(side='left')
+        self.char_keys = list(B.CHARACTERS)
+        self.v_char = tk.StringVar(value=B.CHARACTERS['studio'][0])
+        cc = ttk.Combobox(cf, textvariable=self.v_char, values=[B.CHARACTERS[k][0] for k in self.char_keys], width=10, state='readonly')
+        cc.pack(side='left', padx=4)
+        cc.bind('<<ComboboxSelected>>', lambda e: self.on_char())
+        af = ttk.Frame(lf); af.pack(fill='x', pady=(4, 0))
+        ttk.Label(af, text='AMOUNT', style='Silk.TLabel').pack(side='left')
+        self.v_amt = tk.IntVar(value=50)
+        ttk.Scale(af, from_=0, to=100, variable=self.v_amt, command=lambda v: None).pack(side='left', fill='x', expand=True, padx=4)
+        self.v_amt.trace_add('write', lambda *a: self.after_idle(self.on_char))
+        self.v_chardesc = tk.StringVar()
+        ttk.Label(lf, textvariable=self.v_chardesc, style='Dim.TLabel', wraplength=260).pack(anchor='w', pady=(2, 0))
         self.v_tcount = tk.StringVar()
         ttk.Label(lf, textvariable=self.v_tcount, style='Dim.TLabel').pack(anchor='w', pady=(4, 0))
 
@@ -630,6 +644,9 @@ class Studio(tk.Tk):
         t = self.cur_tone()
         self._loading = True
         self.v_tname.set(t['name'] if t else '')
+        ck = t.get('character', 'studio') if t else 'studio'
+        self.v_char.set(B.CHARACTERS[ck][0]); self.v_amt.set(int(t.get('amount', 50)) if t else 50)
+        self.v_chardesc.set(B.CHARACTERS[ck][1])
         self._loading = False
         self.refresh_zones(zone_i)
 
@@ -731,6 +748,22 @@ class Studio(tk.Tk):
         self.mark()
         self.update_lcd()
 
+    def on_char(self):
+        t = self.cur_tone()
+        if self._loading or not t:
+            return
+        try:
+            ck = self.char_keys[[B.CHARACTERS[k][0] for k in self.char_keys].index(self.v_char.get())]
+            amt = int(float(self.v_amt.get()))
+        except (ValueError, tk.TclError):
+            return
+        if (ck, amt) == (t.get('character', 'studio'), int(t.get('amount', 50))):
+            return
+        t['character'], t['amount'] = ck, amt
+        self.v_chardesc.set(B.CHARACTERS[ck][1])
+        self.mark()
+        self.update_memory()
+
     def update_memory(self):
         try:
             k, used, fits = B.plan(self.proj, self.cache)
@@ -757,7 +790,7 @@ class Studio(tk.Tk):
             ti = self.proj['tones'].index(t) + 1
             if z:
                 zi = t['zones'].index(z) + 1
-                lp = {'off': '1SHOT', 'loop': 'LOOP', 'pingpong': 'PPONG'}[z['loop']]
+                lp = {'off': '1SHOT', 'loop': 'LOOP', 'pingpong': 'PPONG'}[z['loop']] + ' ' + B.CHARACTERS[t.get('character', 'studio')][0][:5]
                 l2 = 'T%03d %-10s Z%02d/%02d %-4s %s' % (ti, t['name'].upper()[:10], zi, len(t['zones']), B.note_name(z['root']), lp)
             else:
                 l2 = 'T%03d %-10s NO ZONES - ADD WAVS' % (ti, t['name'].upper()[:10])
@@ -878,6 +911,7 @@ class Studio(tk.Tk):
         elif z is not self.cur_zone():
             self.zt.selection_set(str(t['zones'].index(z)))
         self.status('Rendering %s as the U-110 plays it...' % B.note_name(note))
+        z['char'], z['amt'] = t.get('character', 'studio'), int(t.get('amount', 50))
         threading.Thread(target=self._preview_worker, args=(z, note, self.k, self.hold.get()), daemon=True).start()
 
     def _preview_worker(self, z, note, k, hold):
@@ -886,7 +920,7 @@ class Studio(tk.Tk):
             key = (B.akey(z), kz)
             if key not in self.prev_cache:
                 y, ls = B.render_zone(z, self.cache, kz)
-                enc = B.encode_zone(y, ls, z['loop'], B.PEAK / (np.max(np.abs(y)) or 1))
+                enc = B.encode_zone(y, ls, z['loop'], B.PEAK / (np.max(np.abs(y)) or 1), hq=z.get('char') == 'crystal')
                 self.prev_cache[key] = (UC.decode(enc) / 2048.0, (ls + B.LEAD) if ls is not None else None)
             d, ls = self.prev_cache[key]
             step = 2 ** ((note - (z['root'] + kz)) / 12)
