@@ -4,4 +4,4 @@ U110CardStudio.exe
 __pycache__/
 *.pyc
 *.selftest.txt
-*_wavs/
+*_BURN_wavs/
