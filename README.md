@@ -34,6 +34,8 @@ and colour-coded key zones on the keyboard. Click a key to hear it exactly as th
 
 ![Card adapter schematic](docs/adapter_schematic.png)
 
+pin 34 ties HIGH to 5V+
+
 *The card-slot adapter used for testing: slot header to SST39SF040, with a CD4069 inverting the active-high card
 select.*
 
