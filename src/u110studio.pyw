@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import u110build as B
 import u110card as UC
 import u110wave as WV
+import u110prog as UP
 
 APP = 'U110 RomHex Studio'
 EXT = '.u110proj'
@@ -462,6 +463,8 @@ class Studio(tk.Tk):
         f.add_command(label='Import Roland / own card .bin...', command=self.cmd_import)
         f.add_separator()
         f.add_command(label='Build Card .bin...', accelerator='Ctrl+B', command=self.cmd_build)
+        f.add_command(label='Build and Burn to Programmer', accelerator='Ctrl+Shift+B', command=self.cmd_build_burn)
+        f.add_command(label='Send .bin to Programmer...', command=self.cmd_burn_file)
         f.add_separator()
         f.add_command(label='Exit', command=self.on_close)
         mb.add_cascade(label='File', menu=f)
@@ -485,7 +488,7 @@ class Studio(tk.Tk):
         self.config(menu=mb)
         for key, fn in (('<Control-n>', self.cmd_new), ('<Control-o>', self.cmd_open), ('<Control-s>', self.cmd_save),
                         ('<Control-b>', self.cmd_build), ('<Control-i>', self.zone_add),
-                        ('<Control-w>', self.wavetable)):
+                        ('<Control-w>', self.wavetable), ('<Control-B>', self.cmd_build_burn)):
             self.bind(key, lambda e, fn=fn: fn())
 
     def build_ui(self):
@@ -1224,6 +1227,49 @@ class Studio(tk.Tk):
             traceback.print_exc()
             self.q.put(('error', 'Build failed:\n%s' % e))
 
+    def confirm_burn(self, what=None):
+        return messagebox.askyesno(APP, 'Erase the chip in the SST programmer and burn %s?\n\n'
+                                        'The chip must be OUT of the synth. Everything on it is replaced.' % (what or 'this card'))
+
+    def cmd_build_burn(self):
+        if not any(t['zones'] for t in self.proj['tones']):
+            messagebox.showinfo(APP, 'Add some tones with WAVs first.'); return
+        if not self.confirm_burn('"%s"' % (self.proj.get('card_name') or 'this card')):
+            return
+        self.status('Building...'); self.prog['value'] = 0
+        threading.Thread(target=self._burn_worker, args=(None, None), daemon=True).start()
+
+    def cmd_burn_file(self):
+        p = filedialog.askopenfilename(title='Card image to send to the programmer', filetypes=[('Card image', '*.bin')])
+        if not p:
+            return
+        try:
+            data = open(p, 'rb').read()
+        except OSError as e:
+            messagebox.showerror(APP, 'Cannot read file:\n%s' % e); return
+        if len(data) != 512 * 1024:
+            messagebox.showerror(APP, 'A card image must be exactly 512 KB (this file is %d bytes).' % len(data)); return
+        if not self.confirm_burn(os.path.basename(p)):
+            return
+        self.status('Sending to programmer...'); self.prog['value'] = 0
+        threading.Thread(target=self._burn_worker, args=(data, os.path.basename(p)), daemon=True).start()
+
+    def _burn_worker(self, data, name):
+        try:
+            if data is None:                                    # build first (the first 20% of the bar)
+                conn, card, rep = B.build(self.proj, self.cache, progress=lambda i, n: self.q.put(('prog', 20 * i / n)))
+                data, name = bytes(conn), (self.proj.get('card_name') or 'card').strip().replace(' ', '_') + '.bin'
+
+            def say(f, text):
+                self.q.put(('prog', 20 + 80 * f)); self.q.put(('status', text))
+            msg = UP.burn_image(data, name, say)
+            self.q.put(('burned', msg))
+        except UP.ProgrammerError as e:
+            self.q.put(('error', 'Programmer: %s' % e))
+        except Exception as e:
+            traceback.print_exc()
+            self.q.put(('error', 'Burn failed:\n%s' % e))
+
     def poll(self):
         try:
             while True:
@@ -1238,9 +1284,13 @@ class Studio(tk.Tk):
                     self.prog['value'] = 100
                     self.status('Built %s' % m[1])
                     messagebox.showinfo(APP, 'Burn-ready card written:\n%s\n\n%s\n\nBurn it as-is (no byte swap) to a 512 KB chip, e.g. SST39SF040.' % (m[1], '\n'.join(m[2])))
+                elif m[0] == 'burned':
+                    self.prog['value'] = 100
+                    self.status('Burned')
+                    messagebox.showinfo(APP, 'Burn finished.\n\n%s\n\nThe programmer does not read the chip back: verify it in your chip programmer, or try the card in the synth.' % m[1])
                 elif m[0] == 'error':
                     self.prog['value'] = 0
-                    self.status('Build failed')
+                    self.status('Failed')
                     messagebox.showerror(APP, m[1])
         except queue.Empty:
             pass

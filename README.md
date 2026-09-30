@@ -31,6 +31,9 @@ Don't have a chip programmer? An **ESP32-S3** can write the card chip itself, ov
 few dollars in parts: **[esp32-maskrom-programmer](https://github.com/yuyoi/esp32-maskrom-programmer)** (a working prototype). It wrote
 a full 512 KB card image with 0 wrong bytes, no level shifters or resistors on the breadboard.
 
+In the app: **File → Build and Burn to Programmer** (Ctrl+Shift+B) builds the card and sends it straight to the
+programmer over USB; **File → Send .bin to Programmer...** sends any 512 KB image. Take the chip out of the synth first.
+
 ## Screenshots
 
 ![U110 RomHex Studio](docs/screenshot.png)
