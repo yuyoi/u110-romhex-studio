@@ -2,6 +2,8 @@
 
 ![Adapter schematic](adapter_schematic.png)
 
+> **Warning:** if you program the chip with the ESP32 programmer, **disconnect the chip from the programmer (unplug it from the breadboard / ESP wiring) before you put it in the card slot.** An ESP left wired to the address and data lines loads and clamps the synth's 5 V bus, adds noise, and can back-power the board. Burn with the chip out of the synth; play with it out of the programmer.
+
 ## U-110 card slot (from the U-110 service notes, connector CN1-4, Roland part 7508096A, 34 pins)
 
 | Slot pin | Signal | Notes |

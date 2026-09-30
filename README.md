@@ -48,6 +48,8 @@ pin 34 ties HIGH to 5V+
 *The card-slot adapter used for testing: slot header to SST39SF040, with a CD4069 inverting the active-high card
 select.*
 
+> **Warning:** if you program the chip with the ESP32 programmer, **disconnect the chip from the programmer (unplug it from the breadboard / ESP wiring) before you put it in the card slot.** An ESP left wired to the address and data lines loads and clamps the synth's 5 V bus, adds noise, and can back-power the board. Burn with the chip out of the synth; play with it out of the programmer.
+
 ## Quick start (Windows)
 
 1. Run **`U110RomHexStudio.exe`**. No install is needed. The exe is unsigned, so Windows may show "Windows
