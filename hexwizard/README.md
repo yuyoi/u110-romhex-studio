@@ -77,6 +77,8 @@ arduino-cli upload -p COMx --fqbn "esp32:esp32:esp32s3:FlashSize=16M,PartitionSc
 
 Flashing the app does not touch the stored cards.
 
+The OLED runs on I2C at 1 MHz with the panel oscillator at its maximum, which keeps camera shots of the screen free of tearing. If your display shows garbled pixels, drop `setBusClock` and `Wire.setClock` back to 400000.
+
 ## Changing the animation
 
 `oled_anim/anim3.py` turns the drawings in `art/` into the firmware frames (`firmware/sst_programmer/splash.h`,

@@ -374,10 +374,10 @@ static void drawScreen() {
 static void oledInit() {
   Wire.setPins(OLED_SDA, OLED_SCL);
   Wire.begin();
-  Wire.setClock(400000);
+  Wire.setClock(1000000);                                  // 1 MHz: a full frame in ~10 ms, less tearing on camera
   for (uint8_t a : {0x3C, 0x3D}) {
     Wire.beginTransmission(a);
-    if (Wire.endTransmission() == 0) { oled.setI2CAddress(a << 1); oled.begin(); oledOk = true; Serial.printf("OLED found at 0x%02X\n", a); break; }
+    if (Wire.endTransmission() == 0) { oled.setI2CAddress(a << 1); oled.setBusClock(1000000); oled.begin(); oled.sendF("ca", 0xD5, 0xF0); oledOk = true; Serial.printf("OLED found at 0x%02X\n", a); break; }
   }
   if (!oledOk) Serial.println("no OLED found (SDA GPIO4, SCL GPIO5)");
   // detect a ladder: with the internal pull-DOWN on, a bare pin or an open single button reads ~0 V, the ladder reads ~2 V through its 6.8k
