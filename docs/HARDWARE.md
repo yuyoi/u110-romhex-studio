@@ -13,7 +13,7 @@
 | 23 | /OE | shared by all slots, active low |
 | 24-31 | D0-D7 | |
 | 32 | GND | |
-| 34 | SENS | card detect (the U-110 reads it as SENS1-4). **Tied high** on the working adapter (confirmed) |
+| 34 | SENS | card detect (the U-110 reads it as SENS1-4). **Tied to +5 V** on the working adapter (confirmed) |
 
 ## Chip: SST39SF040 (512K x 8, 5 V, DIP-32)
 
