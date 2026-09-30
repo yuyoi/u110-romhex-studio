@@ -1229,7 +1229,9 @@ class Studio(tk.Tk):
 
     def confirm_burn(self, what=None):
         return messagebox.askyesno(APP, 'Erase the chip in the SST programmer and burn %s?\n\n'
-                                        'The chip must be OUT of the synth. Everything on it is replaced.' % (what or 'this card'))
+                                        'The chip must be OUT of the synth. Everything on it is replaced.
+
+When it is done, unplug the chip from the programmer before you put it in the synth.' % (what or 'this card'))
 
     def cmd_build_burn(self):
         if not any(t['zones'] for t in self.proj['tones']):

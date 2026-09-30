@@ -32,7 +32,7 @@ few dollars in parts: **[esp32-maskrom-programmer](https://github.com/yuyoi/esp3
 a full 512 KB card image with 0 wrong bytes, no level shifters or resistors on the breadboard.
 
 In the app: **File → Build and Burn to Programmer** (Ctrl+Shift+B) builds the card and sends it straight to the
-programmer over USB; **File → Send .bin to Programmer...** sends any 512 KB image. Take the chip out of the synth first.
+programmer over USB; **File → Send .bin to Programmer...** sends any 512 KB image. Take the chip out of the synth first, and unplug it from the programmer before you put it back in the synth.
 
 ## Screenshots
 
