@@ -25,6 +25,12 @@ looping and one-shot tones play correctly.
 - **Then: wavetable:** single-cycle waves and scan-morph tones (Tone → Wavetable). The stepped scan plus the
   U-110's 8-bit delta coding gives a tunable, glitchy "pleasant malfunction" sound.
 
+## Burn cards with an ESP32
+
+Don't have a chip programmer? An **ESP32-S3** can write the card chip itself, over USB or from a web page, for a
+few dollars in parts: **[esp32-maskrom-programmer](https://github.com/yuyoi/esp32-maskrom-programmer)**. It wrote
+a full 512 KB card image with 0 wrong bytes, no level shifters or resistors on the breadboard.
+
 ## Screenshots
 
 ![U110 RomHex Studio](docs/screenshot.png)
