@@ -34,6 +34,10 @@ a full 512 KB card image with 0 wrong bytes, no level shifters or resistors on t
 In the app: **File → Build and Burn to Programmer** (Ctrl+Shift+B) builds the card and sends it straight to the
 programmer over USB; **File → Send .bin to Programmer...** sends any 512 KB image. Take the chip out of the synth first, and unplug it from the programmer before you put it back in the synth.
 
+**Built a card, or the ESP32 programmer?** It has only been tested on one bench so far. Please
+[open an issue](https://github.com/yuyoi/u110-romhex-studio/issues) and tell us what worked and what didn't
+(which synth, which chip, a photo of your setup).
+
 ## Screenshots
 
 ![U110 RomHex Studio](docs/screenshot.png)
