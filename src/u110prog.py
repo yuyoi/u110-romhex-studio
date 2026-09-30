@@ -44,8 +44,9 @@ def _cmd(ser, text, prefix, timeout=5):
     return _expect(ser, prefix, timeout)
 
 
-def burn_image(data, name='card.bin', progress=None, port=None):
-    """progress(fraction 0..1, text). returns a result message. raises ProgrammerError."""
+def burn_image(data, name='card.bin', progress=None, port=None, info=None):
+    """progress(fraction 0..1, text). info: optional text (card name + tone names) the web page shows.
+    returns a result message. raises ProgrammerError."""
     import serial
     say = progress or (lambda f, t: None)
     if len(data) != IMAGE_SIZE:
@@ -78,6 +79,11 @@ def burn_image(data, name='card.bin', progress=None, port=None):
             if (i // BLOCK) % 8 == 0:
                 say(0.3 * i / len(data), 'Sending to programmer... %d%%' % (100 * i // len(data)))
         _expect(ser, 'DONE', 10)
+        if info:
+            txt = info.encode('utf-8', 'replace')[:2000]
+            _cmd(ser, 'TXT %s %d' % (name, len(txt)), 'OK')
+            ser.write(txt)
+            _expect(ser, 'DONE', 5)
         say(0.3, 'Sent, CRC ok. Erasing and writing the chip...')
         _cmd(ser, 'BURN ' + name, 'OK')
         names = ['idle', 'Erasing chip...', 'Writing chip...', 'done', 'error']

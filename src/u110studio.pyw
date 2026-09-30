@@ -1256,13 +1256,15 @@ class Studio(tk.Tk):
 
     def _burn_worker(self, data, name):
         try:
+            info = None
             if data is None:                                    # build first (the first 20% of the bar)
                 conn, card, rep = B.build(self.proj, self.cache, progress=lambda i, n: self.q.put(('prog', 20 * i / n)))
                 data, name = bytes(conn), (self.proj.get('card_name') or 'card').strip().replace(' ', '_') + '.bin'
+                info = '%s: %s' % ((self.proj.get('card_name') or 'card').strip(), ', '.join(t['name'] for t in self.proj['tones']))
 
             def say(f, text):
                 self.q.put(('prog', 20 + 80 * f)); self.q.put(('status', text))
-            msg = UP.burn_image(data, name, say)
+            msg = UP.burn_image(data, name, say, info=info)
             self.q.put(('burned', msg))
         except UP.ProgrammerError as e:
             self.q.put(('error', 'Programmer: %s' % e))
