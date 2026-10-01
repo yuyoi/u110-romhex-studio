@@ -72,6 +72,9 @@ static void chipErase() {
   cmdUnlock(); busWrite(0x5555, 0x10);
   delay(150);                                     // TSCE max 100 ms
 }
+// sector erase (4 KB): AA 55 80 AA 55 then 30H at the sector address; TSE max 25 ms. Gentler on the supply than a chip erase.
+static void sectorErase(uint32_t sa) { cmdUnlock(); busWrite(0x5555, 0x80); cmdUnlock(); busWrite(sa, 0x30); delay(30); }
+static void sectorSweep() { for (uint32_t sa = 0; sa < 524288UL; sa += 4096) sectorErase(sa); }
 static void byteProgram(uint32_t addr, uint8_t d) {
   for (int t = 0; t < PROGRAM_TRIES; t++) {
     cmdUnlock(); busWrite(0x5555, 0xA0); busWrite(addr, d);
@@ -108,6 +111,7 @@ static void burnTask(void *arg) {
   vTaskDelay(pdMS_TO_TICKS(400));                 // let the HTTP reply out, then kill the radio
   radioOff();
   chipErase();
+  sectorSweep();                                  // belt and braces: a chip erase that did not take (weak supply) is caught here
   jobState = J_WRITING;
   static uint8_t buf[512];
   uint32_t addr = 0;
@@ -318,7 +322,10 @@ static void uiApply(const String &gl, const String &ip, const String &an, const 
 static void handleCmd(String l) {
   l.trim();
   if (l == "PING") Serial.println("PONG SST-PROG");
-  else if (l == "UI" || l.startsWith("UI ")) {      // UI gl=0|1 ip=0|1 an=0..4 play=0..2
+  else if (l == "ERASE" || l == "ERASE CHIP") {      // erase test without writing: read the chip in the T48 afterwards, it should be all FF
+    if (jobState == J_ERASING || jobState == J_WRITING) Serial.println("ERR busy");
+    else { radioOff(); if (l == "ERASE CHIP") chipErase(); else sectorSweep(); radioOn(); Serial.println("OK erased"); }
+  } else if (l == "UI" || l.startsWith("UI ")) {      // UI gl=0|1 ip=0|1 an=0..4 play=0..2
     String gl, ip, an, play; String rest = l.substring(2); int i = 0;
     while (i < (int)rest.length()) {
       int j = rest.indexOf(' ', i); if (j < 0) j = rest.length();
