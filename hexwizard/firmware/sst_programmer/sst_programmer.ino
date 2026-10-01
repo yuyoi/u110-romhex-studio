@@ -486,9 +486,12 @@ static int readButtons() {
   static uint32_t lastSample = 0, downSince = 0, nextRep = 0;
   static int stable = EV_NONE, cand = EV_NONE, candCnt = 0;
   uint32_t now = millis();
-  if (!ladderMode) {
-    static uint32_t lastBtn = 0;
-    if (digitalRead(BTN_PIN) == LOW && now - lastBtn > 300) { lastBtn = now; return EV_LEGACY; }
+  if (!ladderMode) {                                   // single button: short press = EV_LEGACY (next), hold 0.7 s = EV_SELECT
+    static uint32_t downAt = 0; static bool held = false, longDone = false;
+    bool dn = digitalRead(BTN_PIN) == LOW;
+    if (dn && !held) { held = true; longDone = false; downAt = now; }
+    else if (dn && held && !longDone && now - downAt > 700) { longDone = true; return EV_SELECT; }
+    else if (!dn && held) { held = false; if (!longDone && now - downAt > 30) return EV_LEGACY; }
     return EV_NONE;
   }
   if (now - lastSample < 4) return EV_NONE;
@@ -510,7 +513,7 @@ static int readButtons() {
 }
 
 // ---------------------------------------------------------------- creature: boot intro, then idle (blink + small glitch); button = status screen
-enum { OV_SPLASH, OV_CREATURE, OV_STATUS };
+enum { OV_SPLASH, OV_CREATURE, OV_STATUS, OV_MENU };
 static uint8_t ovMode = OV_SPLASH;
 static uint32_t ovStart = 0, ovAct = 0, ovTick = 0;
 static int ovLastSeq = -1;
@@ -547,6 +550,35 @@ static const uint8_t *animSteps(int a, int &n) {
   switch (a) { case 0: n = SPL_ANIM0_N; return SPL_ANIM0; case 1: n = SPL_ANIM1_N; return SPL_ANIM1; default: n = SPL_ANIM2_N; return SPL_ANIM2; }
 }
 
+// ---------------------------------------------------------------- settings menu on the device (same settings as the web page's Display tab)
+static uint8_t menuIdx = 0;
+static const char *ANIM_NAMES[5] = {"Look around", "Gasp", "Rack", "Random", "Off"};
+static void drawMenu() {
+  if (!oledOk) return;
+  oled.clearBuffer();
+  oled.setFont(u8g2_font_5x8_tf);
+  oled.drawStr(0, 8, "SETTINGS");
+  oled.drawHLine(0, 10, 128);
+  const char *lab[5] = {"Glitch band", "Show IP", "Animation", "Play it now", "Back"};
+  for (int i = 0; i < 5; i++) {
+    int y = 20 + i * 9;
+    if (i == menuIdx) oled.drawStr(0, y, ">");
+    oled.drawStr(8, y, lab[i]);
+    const char *v = i == 0 ? (uiGlitch ? "on" : "off") : i == 1 ? (uiShowIp ? "on" : "off") : i == 2 ? ANIM_NAMES[uiAnim] : "";
+    if (v[0]) oled.drawStr(128 - strlen(v) * 5, y, v);
+  }
+  oled.sendBuffer();
+}
+static void menuActivate() {
+  switch (menuIdx) {
+    case 0: uiGlitch = !uiGlitch; uiSave(); break;
+    case 1: uiShowIp = !uiShowIp; uiSave(); break;
+    case 2: uiAnim = (uiAnim + 1) % 5; uiSave(); break;
+    case 3: uiPlayNow = (uiAnim < 3) ? uiAnim : (int)(esp_random() % 3); ovMode = OV_CREATURE; break;   // play it now: back to the creature to watch it
+    default: ovMode = OV_CREATURE; break;
+  }
+}
+
 static void oledLoop() {
   static uint32_t lastDraw = 0;
   static uint8_t lastJob = J_IDLE;
@@ -564,7 +596,12 @@ static void oledLoop() {
     ovAct = now; lastDraw = 0; viewScroll = 0; viewScrollAt = now;
     if (ovMode == OV_SPLASH) ovMode = OV_CREATURE;
     else if (ovMode == OV_CREATURE) { ovMode = OV_STATUS; viewIdx = -1; }
-    else if (ev == EV_SELECT) ovMode = OV_CREATURE;
+    else if (ovMode == OV_MENU) {
+      if (ev == EV_UP) menuIdx = (menuIdx + 4) % 5;
+      else if (ev == EV_DOWN || ev == EV_LEGACY) menuIdx = (menuIdx + 1) % 5;      // single button: a short press moves on
+      else if (ev == EV_SELECT) menuActivate();
+    }
+    else if (ev == EV_SELECT) { ovMode = OV_MENU; menuIdx = 0; }                  // status screen -> settings
     else {
       int n = cardCount();
       if (ev == EV_UP) viewIdx = (viewIdx <= -1) ? n - 1 : viewIdx - 1;                  // -1 = the card burned last
@@ -572,7 +609,7 @@ static void oledLoop() {
       else viewIdx++;
     }
   }
-  if (ovMode == OV_STATUS && !busy && now - ovAct > STATUS_TIMEOUT) ovMode = OV_CREATURE;
+  if ((ovMode == OV_STATUS || ovMode == OV_MENU) && !busy && now - ovAct > STATUS_TIMEOUT) ovMode = OV_CREATURE;
 
   if (ovMode == OV_SPLASH) {
     int i = (now - ovStart) / SPL_FRAME_MS;
@@ -602,6 +639,8 @@ static void oledLoop() {
       bool gl = uiGlitch && ((n % 38) == 34 || (n % 38) == 35);
       showFrame(SPL_FRAMES[f], gl ? (int)(24 + (n * 7) % 30) : -1, (n & 1) ? 3 : -3, true);
     }
+  } else if (ovMode == OV_MENU) {
+    if (now - lastDraw > 200) { lastDraw = now; drawMenu(); }
   } else {
     if (now - lastDraw > (busy ? 1000 : 500)) { lastDraw = now; drawScreen(); }
   }

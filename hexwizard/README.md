@@ -34,6 +34,14 @@ Join the WiFi network `SST-PROG` (password `u110cards`), open the programmer's p
 
 Settings are saved on the device. From a terminal the same thing is `UI gl=0 ip=1 an=2 play=1` over the serial port (921600 baud), and plain `UI` prints the current state.
 
+### Settings menu on the device
+
+The same settings are on the OLED. With the **single button** a short press moves on and a **hold (0.7 s)** selects:
+creature -> (press) status screen -> (hold) **Settings**. With the **three-button ladder**, Select on the status screen
+opens Settings, Up/Down move and Select changes the item. Items: *Glitch band* on/off, *Show IP* on/off,
+*Animation* (Look around, Gasp, Rack, Random, Off), *Play it now*, *Back*. Changes are saved at once and match the web
+page. The menu closes after 20 s without a press.
+
 ## Wiring (on top of the programmer's pin map)
 
 | OLED (0.96" SSD1306, I2C) | ESP32-S3 |
