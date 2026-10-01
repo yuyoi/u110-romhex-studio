@@ -21,6 +21,17 @@ The general programmer repo stays plain (status screen only). Everything here is
 > **Warning:** never leave the ESP wired to the chip while it is in a synth. See the warning in the
 > [programmer README](https://github.com/yuyoi/esp32-maskrom-programmer#readme).
 
+## Display settings (web page, Display tab)
+
+Open the programmer's page (`http://192.168.4.1/` or `http://sstprog.local/`) and pick the **Display** tab:
+
+- **Glitch band** on or off.
+- **Show the IP** at the bottom left of the creature screen (small 4x6 text, it cuts into the picture a little).
+- **Idle animation:** *Look around*, *Gasp*, *Look at the rack*, *Random* (picks one every few seconds), or *Off* (blink only). **Play it now** previews the chosen one.
+- **Storage:** flash used and total, percent filled, card count and free space. The OLED status screen shows the same in its bottom line, for example `2 cards 10%/9.8M`.
+
+Settings are saved on the device. From a terminal the same thing is `UI gl=0 ip=1 an=2 play=1` over the serial port (921600 baud), and plain `UI` prints the current state.
+
 ## Wiring (on top of the programmer's pin map)
 
 | OLED (0.96" SSD1306, I2C) | ESP32-S3 |
@@ -93,6 +104,7 @@ python anim3.py
 - Far view uses a sharpened, dithered downscale; the zoom dissolves into a cleaner contrast-stretched one. At 128x64,
   bold single strokes survive and hairlines and dense hatching do not.
 - Text uses a hand-made 5x7 pixel font defined in the script.
+- The idle animations (look left and right, look at the rack, gasp) are built from the drawing by redrawing the eyes and mouth. To use your own drawings instead, save full frames at 1280 x 600 as `art/girl_look_left.png`, `art/girl_look_right.png`, `art/girl_look_rack.png`, `art/girl_gasp1.png` and `art/girl_gasp2.png`, then run the script; it uses any of those that exist.
 
 ## Built one? Tell us
 

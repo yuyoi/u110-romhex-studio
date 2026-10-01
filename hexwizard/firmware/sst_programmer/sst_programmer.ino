@@ -137,9 +137,11 @@ body{font-family:system-ui,sans-serif;background:#12161a;color:#eef1f3;max-width
 h1{color:#6ec8e8;font-size:1.4em}.card{background:#1d2228;border:1px solid #33393f;border-radius:8px;padding:12px;margin:10px 0}
 button,input[type=submit]{background:#3a3f46;color:#eef1f3;border:1px solid #555;border-radius:5px;padding:7px 14px;font-size:1em}
 button.go{background:#c8322a;border-color:#c8322a}.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0}
-#bar{height:14px;background:#0c0f0d;border-radius:7px;overflow:hidden}#fill{height:100%;width:0;background:#94ec44}
+#bar,#bar2{height:14px;background:#0c0f0d;border-radius:7px;overflow:hidden}#fill,#fill2{height:100%;width:0;background:#94ec44}.tabs button{margin-right:6px}select{background:#3a3f46;color:#eef1f3;border:1px solid #555;border-radius:5px;padding:6px}
 small{color:#8a96a0}</style></head><body>
 <h1>SST39SF040 programmer</h1>
+<div class=tabs><button onclick="tab(0)">Cards</button><button onclick="tab(1)">Display</button></div>
+<div id=t0>
 <div class=card><b>Stored cards</b><div id=list>...</div></div>
 <div class=card><b>Upload a card image</b> <small>(512 KB .bin, connector order)</small>
 <form method=POST action=/upload enctype=multipart/form-data><div class=row><input type=file name=f accept=.bin required><input type=submit value=Upload></div></form></div>
@@ -147,6 +149,15 @@ small{color:#8a96a0}</style></head><body>
 <form method=POST action=/wifi><div class=row><input name=ssid placeholder=network required><input name=pass type=password placeholder=password><input type=submit value=Join></div></form>
 <small>Joins your router too, so a PC on the same network can open the page. The SST-PROG network stays on.</small></div>
 <div class=card><b>Status</b><div id=st>idle</div><div id=bar><div id=fill></div></div></div>
+</div>
+<div id=t1 style="display:none">
+<div class=card><b>Hex Wizard screen</b>
+<div class=row><label><input type=checkbox id=gl onchange=ui()> Glitch band</label></div>
+<div class=row><label><input type=checkbox id=ipk onchange=ui()> Show the IP on the creature screen</label></div>
+<div class=row><span>Idle animation</span><select id=an onchange=ui()><option value=0>Look around</option><option value=1>Gasp</option><option value=2>Look at the rack</option><option value=3>Random</option><option value=4>Off (blink only)</option></select></div>
+<div class=row><button onclick="play()">Play it now</button><small>Settings are saved on the device.</small></div></div>
+<div class=card><b>Storage</b><div id=sto>...</div><div id=bar2><div id=fill2></div></div></div>
+</div>
 <small>Only burn with the card OUT of the U-110.</small>
 <script>
 async function j(u){return (await fetch(u)).json()}
@@ -171,6 +182,15 @@ async function wifi(){
   document.getElementById('wf').textContent=w.connected?('connected to '+w.ssid+': http://'+w.ip+'/ or http://sstprog.local/'):(w.ssid?('joining '+w.ssid+'...'):'not set');
   if(w.ssid&&!w.connected)setTimeout(wifi,2000);
 }
+function tab(n){document.getElementById('t0').style.display=n?'none':'';document.getElementById('t1').style.display=n?'':'none';if(n)loadUi()}
+async function loadUi(){
+  const u=await j('/ui');
+  document.getElementById('gl').checked=!!u.gl;document.getElementById('ipk').checked=!!u.ip;document.getElementById('an').value=u.an;
+  document.getElementById('sto').textContent=(u.used/1024).toFixed(1)+' MB used of '+(u.total/1024).toFixed(1)+' MB ('+u.pct+'%), '+u.cards+' cards, '+(u.free/1024).toFixed(1)+' MB free';
+  document.getElementById('fill2').style.width=u.pct+'%';
+}
+async function ui(){await j('/ui?gl='+(document.getElementById('gl').checked?1:0)+'&ip='+(document.getElementById('ipk').checked?1:0)+'&an='+document.getElementById('an').value)}
+async function play(){const a=+document.getElementById('an').value;await j('/ui?play='+(a<3?a:Math.floor(Math.random()*3)))}
 refresh();poll();wifi();
 </script></body></html>)HTML";
 
@@ -247,10 +267,46 @@ static void serialPut(const char *name, uint32_t size, uint32_t crcWant) {
   Serial.println("DONE");
 }
 
+// ---------------------------------------------------------------- display settings (saved in flash; web page Display tab or the serial UI command)
+static bool uiGlitch = true, uiShowIp = true;
+static uint8_t uiAnim = 3;               // 0 look around, 1 gasp, 2 look at the rack, 3 random, 4 off (blink only)
+static int uiPlayNow = -1;               // 0..2: start that animation right away (web play button, serial UI play=N)
+static int cardCount();
+static void uiLoad() { Preferences p; p.begin("ui", true); uiGlitch = p.getBool("gl", true); uiShowIp = p.getBool("ip", true); uiAnim = p.getUChar("an", 3); p.end(); if (uiAnim > 4) uiAnim = 3; }
+static void uiSave() { Preferences p; p.begin("ui", false); p.putBool("gl", uiGlitch); p.putBool("ip", uiShowIp); p.putUChar("an", uiAnim); p.end(); }
+static void flashStats(unsigned &totalK, unsigned &usedK, int &pct) {
+  unsigned long t = FFat.totalBytes(), u = FFat.usedBytes();
+  totalK = t / 1024; usedK = u / 1024; pct = t ? (int)((u * 100UL + t / 2) / t) : 0;
+}
+static String uiJson() {
+  unsigned tk, uk; int pct; flashStats(tk, uk, pct);
+  return String("{\"gl\":") + String(uiGlitch ? 1 : 0) + ",\"ip\":" + String(uiShowIp ? 1 : 0) + ",\"an\":" + String((int)uiAnim) +
+         ",\"total\":" + String(tk) + ",\"used\":" + String(uk) + ",\"pct\":" + String(pct) + ",\"cards\":" + String(cardCount()) + ",\"free\":" + String(tk - uk) + "}";
+}
+static void uiApply(const String &gl, const String &ip, const String &an, const String &play) {
+  bool ch = false;
+  if (gl.length()) { uiGlitch = gl == "1"; ch = true; }
+  if (ip.length()) { uiShowIp = ip == "1"; ch = true; }
+  if (an.length()) { int a = an.toInt(); if (a >= 0 && a <= 4) { uiAnim = a; ch = true; } }
+  if (ch) uiSave();
+  if (play.length()) { int a = play.toInt(); if (a >= 0 && a <= 2) uiPlayNow = a; }
+}
+
 static void handleCmd(String l) {
   l.trim();
   if (l == "PING") Serial.println("PONG SST-PROG");
-  else if (l == "LIST") {
+  else if (l == "UI" || l.startsWith("UI ")) {      // UI gl=0|1 ip=0|1 an=0..4 play=0..2
+    String gl, ip, an, play; String rest = l.substring(2); int i = 0;
+    while (i < (int)rest.length()) {
+      int j = rest.indexOf(' ', i); if (j < 0) j = rest.length();
+      String tok = rest.substring(i, j);
+      if (tok.startsWith("gl=")) gl = tok.substring(3); else if (tok.startsWith("ip=")) ip = tok.substring(3);
+      else if (tok.startsWith("an=")) an = tok.substring(3); else if (tok.startsWith("play=")) play = tok.substring(5);
+      i = j + 1;
+    }
+    uiApply(gl, ip, an, play);
+    Serial.println("UI " + uiJson());
+  } else if (l == "LIST") {
     File d = FFat.open(DIR_CARDS);
     for (File e = d.openNextFile(); e; e = d.openNextFile()) if (!e.isDirectory()) Serial.printf("FILE %s %u\n", e.name(), (unsigned)e.size());
     Serial.println("END");
@@ -365,8 +421,9 @@ static void drawScreen() {
     const char *st = jobState == J_DONE ? "DONE" : jobState == J_ERROR ? "ERROR" : "ready";
     oled.drawHLine(0, 54, 128);
     oled.drawStr(0, 63, st);
-    String fk = String((unsigned)(FFat.freeBytes() / 1024)) + "K free";
-    oled.drawStr(128 - fk.length() * 5, 63, fk.c_str());
+    unsigned tk, uk; int pct; flashStats(tk, uk, pct);
+    char sb[32]; snprintf(sb, sizeof sb, "%d cards %d%%/%.1fM", cardCount(), pct, tk / 1024.0);
+    oled.drawStr(128 - strlen(sb) * 5, 63, sb);
   }
   oled.sendBuffer();
 }
@@ -388,6 +445,7 @@ static void oledInit() {
   Serial.printf("GPIO6 reads %d mV with the pull-down on\n", mv0);
   pinMode(BTN_PIN, ladderMode ? INPUT : INPUT_PULLUP);
   Serial.println(ladderMode ? "buttons: resistor ladder on GPIO6 (UP / DOWN / SELECT)" : "buttons: single button on GPIO6");
+  uiLoad();
   Preferences p; p.begin("state", true); lastCard = p.getString("last", ""); p.end();
 }
 
@@ -443,7 +501,8 @@ static const uint32_t STATUS_TIMEOUT = 20000;          // status screen falls ba
 static inline bool gGet(int x, int y) { return gbuf[y * 16 + (x >> 3)] & (1 << (x & 7)); }
 static inline void gSet(int x, int y, bool v) { if (v) gbuf[y * 16 + (x >> 3)] |= (1 << (x & 7)); else gbuf[y * 16 + (x >> 3)] &= ~(1 << (x & 7)); }
 
-static void showFrame(const uint8_t *frame, int glitchRow, int glitchShift) {
+static String ipCache; static uint32_t ipAt = 0;
+static void showFrame(const uint8_t *frame, int glitchRow, int glitchShift, bool withIp) {
   memcpy_P(gbuf, frame, 1024);
   if (glitchRow >= 0) {
     for (int y = glitchRow; y < glitchRow + 4 && y < SPL_H; y++) {
@@ -454,7 +513,19 @@ static void showFrame(const uint8_t *frame, int glitchRow, int glitchShift) {
   }
   oled.clearBuffer();
   oled.drawXBM(0, 0, SPL_W, SPL_H, gbuf);
+  if (withIp && uiShowIp) {                                   // small IP at the bottom left, cutting into the picture a little
+    if (ipCache.length() == 0 || millis() - ipAt > 3000) { ipAt = millis(); ipCache = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : WiFi.softAPIP().toString(); }
+    oled.setFont(u8g2_font_4x6_tr);
+    oled.setDrawColor(0); oled.drawBox(0, 57, ipCache.length() * 4 + 2, 7); oled.setDrawColor(1);
+    oled.drawStr(0, 63, ipCache.c_str());
+  }
   oled.sendBuffer();
+}
+
+// idle animations: (frame, ticks) steps from splash.h
+static int8_t animSel = -1; static uint16_t animPos = 0; static uint8_t animTicks = 0; static uint32_t nextAnimAt = 0;
+static const uint8_t *animSteps(int a, int &n) {
+  switch (a) { case 0: n = SPL_ANIM0_N; return SPL_ANIM0; case 1: n = SPL_ANIM1_N; return SPL_ANIM1; default: n = SPL_ANIM2_N; return SPL_ANIM2; }
 }
 
 static void oledLoop() {
@@ -487,16 +558,30 @@ static void oledLoop() {
   if (ovMode == OV_SPLASH) {
     int i = (now - ovStart) / SPL_FRAME_MS;
     if (i >= SPL_NSEQ) { ovMode = OV_CREATURE; return; }
-    if (i != ovLastSeq) { ovLastSeq = i; showFrame(SPL_FRAMES[pgm_read_byte(&SPL_SEQ[i])], -1, 0); }
+    if (i != ovLastSeq) { ovLastSeq = i; showFrame(SPL_FRAMES[pgm_read_byte(&SPL_SEQ[i])], -1, 0, false); }
   } else if (ovMode == OV_CREATURE) {
     if (now - ovTick >= SPL_FRAME_MS) {
       ovTick = now;
+      if (nextAnimAt == 0) nextAnimAt = now + 2500;
       uint32_t n = now / SPL_FRAME_MS;
-      uint32_t ph = n % 45;
       int f = SPL_IDLE;
-      if (ph == 38 || ph == 42) f = SPL_HALF; else if (ph >= 39 && ph <= 41) f = SPL_CLOSED;
-      bool gl = (n % 38) == 34 || (n % 38) == 35;
-      showFrame(SPL_FRAMES[f], gl ? (int)(24 + (n * 7) % 30) : -1, (n & 1) ? 3 : -3);
+      if (uiPlayNow >= 0 || (animSel < 0 && uiAnim != 4 && now >= nextAnimAt)) {
+        animSel = (uiPlayNow >= 0) ? uiPlayNow : (uiAnim == 3 ? (int)(esp_random() % 3) : (int)uiAnim);
+        uiPlayNow = -1; animPos = 0; animTicks = 0;
+      }
+      if (animSel >= 0) {                                       // an idle animation is playing
+        int cnt; const uint8_t *st = animSteps(animSel, cnt);
+        f = pgm_read_byte(&st[animPos * 2]);
+        if (++animTicks >= pgm_read_byte(&st[animPos * 2 + 1])) {
+          animTicks = 0;
+          if (++animPos >= cnt) { animSel = -1; nextAnimAt = now + 3500 + esp_random() % 5500; }
+        }
+      } else {                                                  // plain idle: blink every ~3 s
+        uint32_t ph = n % 45;
+        if (ph == 38 || ph == 42) f = SPL_HALF; else if (ph >= 39 && ph <= 41) f = SPL_CLOSED;
+      }
+      bool gl = uiGlitch && ((n % 38) == 34 || (n % 38) == 35);
+      showFrame(SPL_FRAMES[f], gl ? (int)(24 + (n * 7) % 30) : -1, (n & 1) ? 3 : -3, true);
     }
   } else {
     if (now - lastDraw > (busy ? 1000 : 500)) { lastDraw = now; drawScreen(); }
@@ -561,6 +646,10 @@ void setup() {
   server.on("/status", HTTP_GET, []() {
     server.send(200, "application/json", "{\"state\":" + String((int)jobState) + ",\"done\":" + String((unsigned)jobDone) +
                                              ",\"total\":" + String((unsigned)IMAGE_SIZE) + ",\"msg\":\"" + jsonEscape(jobMsg) + "\"}");
+  });
+  server.on("/ui", HTTP_GET, []() {
+    uiApply(server.arg("gl"), server.arg("ip"), server.arg("an"), server.arg("play"));
+    server.send(200, "application/json", uiJson());
   });
   server.begin();
 }
