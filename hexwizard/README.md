@@ -116,6 +116,13 @@ python anim3.py
 - Text uses a hand-made 5x7 pixel font defined in the script.
 - The idle animations (look left and right, look at the rack, gasp) are built from the drawing by redrawing the eyes and mouth. To use your own drawings instead, save full frames at 1280 x 600 as `art/girl_look_left.png`, `art/girl_look_right.png`, `art/girl_look_rack.png`, `art/girl_gasp1.png` and `art/girl_gasp2.png`, then run the script; it uses any of those that exist.
 
+## Burning tips (what went wrong on the bench)
+
+- **Check the contacts first.** A chip erase draws more current than programming. A loose or high-resistance joint on VDD (pin 32) or GND (pin 16) can make the erase quietly fail while every byte still programs, leaving the old data ANDed with the new. Use the best contacts you have for the power pins, put 100 nF plus 10 uF across pins 32 and 16, and re-seat cheap breadboard headers before each burn.
+- The firmware resets the chip's command state (`F0H`) at boot and before each erase, and follows the chip erase with a per-sector erase pass (about 4 s more).
+- `ERASE CHIP` and `ERASE` (sectors only) over the serial port erase without writing, so you can read the chip in your programmer and check for all `FF`.
+- The page's status request times out after 4 s and keeps retrying, so it recovers when the WiFi comes back after a burn.
+
 ## Built one? Tell us
 
 If you build any of it, please [open an issue](https://github.com/yuyoi/u110-romhex-studio/issues) with what you

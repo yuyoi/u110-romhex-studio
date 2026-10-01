@@ -67,14 +67,18 @@ static void initBus() {
 
 // SST39SF040 command sequences (datasheet table 4): addresses 5555H / 2AAAH
 static void cmdUnlock() { busWrite(0x5555, 0xAA); busWrite(0x2AAA, 0x55); }
+// flush any half-entered command sequence (stray writes while the ESP boots or resets can leave the chip waiting mid-sequence):
+// F0H resets the chip to read mode, then the 3-cycle form AA 55 F0 as well
+static void chipReset() { busWrite(0x5555, 0xF0); busWrite(0x5555, 0xAA); busWrite(0x2AAA, 0x55); busWrite(0x5555, 0xF0); delayMicroseconds(10); }
 static void chipErase() {
+  chipReset();
   cmdUnlock(); busWrite(0x5555, 0x80);
   cmdUnlock(); busWrite(0x5555, 0x10);
   delay(150);                                     // TSCE max 100 ms
 }
 // sector erase (4 KB): AA 55 80 AA 55 then 30H at the sector address; TSE max 25 ms. Gentler on the supply than a chip erase.
 static void sectorErase(uint32_t sa) { cmdUnlock(); busWrite(0x5555, 0x80); cmdUnlock(); busWrite(sa, 0x30); delay(30); }
-static void sectorSweep() { for (uint32_t sa = 0; sa < 524288UL; sa += 4096) sectorErase(sa); }
+static void sectorSweep() { chipReset(); for (uint32_t sa = 0; sa < 524288UL; sa += 4096) sectorErase(sa); }
 static void byteProgram(uint32_t addr, uint8_t d) {
   for (int t = 0; t < PROGRAM_TRIES; t++) {
     cmdUnlock(); busWrite(0x5555, 0xA0); busWrite(addr, d);
@@ -169,7 +173,7 @@ small{color:#8a96a0}</style></head><body>
 </div>
 <small>Only burn with the card OUT of the U-110.</small>
 <script>
-async function j(u){return (await fetch(u)).json()}
+async function j(u){const c=new AbortController();const t=setTimeout(()=>c.abort(),4000);try{return await (await fetch(u,{signal:c.signal})).json()}finally{clearTimeout(t)}}
 async function refresh(){
   const l=await j('/list');let h='';
   for(const c of l.cards)h+=`<div class=row><span>${c.name} <small>${(c.size/1024)|0} KB</small>${c.info?'<br><small>'+c.info.replace(/</g,'&lt;')+'</small>':''}</span><span><button class=go onclick="burn('${c.name}')">Burn</button> <button onclick="del('${c.name}')">Delete</button></span></div>`;
@@ -664,6 +668,7 @@ void setup() {
   Serial.begin(921600);
   delay(300);
   initBus();
+  chipReset();
   if (!FFat.begin(true)) Serial.println("FFat mount failed");
   FFat.mkdir(DIR_CARDS);
   oledInit();
