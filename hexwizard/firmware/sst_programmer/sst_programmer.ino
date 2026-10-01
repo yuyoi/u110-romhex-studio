@@ -140,7 +140,7 @@ button.go{background:#c8322a;border-color:#c8322a}.row{display:flex;justify-cont
 #bar,#bar2{height:14px;background:#0c0f0d;border-radius:7px;overflow:hidden}#fill,#fill2{height:100%;width:0;background:#94ec44}.tabs button{margin-right:6px}select{background:#3a3f46;color:#eef1f3;border:1px solid #555;border-radius:5px;padding:6px}
 small{color:#8a96a0}</style></head><body>
 <h1>SST39SF040 programmer</h1>
-<div class=tabs><button onclick="tab(0)">Cards</button><button onclick="tab(1)">Display</button></div>
+<div class=tabs><button onclick="tab(0)">Cards</button><button onclick="tab(1)">Display</button><button onclick="tab(2)">Screen</button></div>
 <div id=t0>
 <div class=card><b>Stored cards</b><div id=list>...</div></div>
 <div class=card><b>Upload a card image</b> <small>(512 KB .bin, connector order)</small>
@@ -157,6 +157,11 @@ small{color:#8a96a0}</style></head><body>
 <div class=row><span>Idle animation</span><select id=an onchange=ui()><option value=0>Look around</option><option value=1>Gasp</option><option value=2>Look at the rack</option><option value=3>Random</option><option value=4>Off (blink only)</option></select></div>
 <div class=row><button onclick="play()">Play it now</button><small>Settings are saved on the device.</small></div></div>
 <div class=card><b>Storage</b><div id=sto>...</div><div id=bar2><div id=fill2></div></div></div>
+</div>
+<div id=t2 style="display:none">
+<div class=card><b>Live screen</b><div><canvas id=cv width=128 height=64 style="width:100%;max-width:512px;image-rendering:pixelated;background:#000;border-radius:6px"></canvas></div>
+<div class=row><button onclick="btn('up')">Up</button><button onclick="btn('down')">Down</button><button onclick="btn('sel')">Select</button></div>
+<small>Same as the three buttons: Up and Down browse the stored cards, Select switches between the creature and the status screen. The picture updates about 3 times a second and pauses while a burn runs.</small></div>
 </div>
 <small>Only burn with the card OUT of the U-110.</small>
 <script>
@@ -182,7 +187,19 @@ async function wifi(){
   document.getElementById('wf').textContent=w.connected?('connected to '+w.ssid+': http://'+w.ip+'/ or http://sstprog.local/'):(w.ssid?('joining '+w.ssid+'...'):'not set');
   if(w.ssid&&!w.connected)setTimeout(wifi,2000);
 }
-function tab(n){document.getElementById('t0').style.display=n?'none':'';document.getElementById('t1').style.display=n?'':'none';if(n)loadUi()}
+let scr=0;
+function tab(n){for(let i=0;i<3;i++)document.getElementById('t'+i).style.display=i==n?'':'none';if(n==1)loadUi();scr=n==2;if(scr)screen()}
+async function screen(){
+  if(!scr)return;
+  try{
+    const b=new Uint8Array(await (await fetch('/screen')).arrayBuffer());
+    const c=document.getElementById('cv').getContext('2d'),im=c.createImageData(128,64);
+    for(let y=0;y<64;y++)for(let x=0;x<128;x++){const on=(b[(y>>3)*128+x]>>(y&7))&1,o=(y*128+x)*4;im.data[o]=on?150:0;im.data[o+1]=on?236:0;im.data[o+2]=on?255:0;im.data[o+3]=255}
+    c.putImageData(im,0,0);
+  }catch(e){}
+  setTimeout(screen,320);
+}
+async function btn(b){await fetch('/btn?b='+b);setTimeout(()=>{},0)}
 async function loadUi(){
   const u=await j('/ui');
   document.getElementById('gl').checked=!!u.gl;document.getElementById('ipk').checked=!!u.ip;document.getElementById('an').value=u.an;
@@ -352,6 +369,7 @@ static void serialPoll() {
 
 // ---------------------------------------------------------------- OLED (0.96" SSD1306, I2C on GPIO4/5) + next-card button on GPIO6
 static bool oledOk = false;
+static volatile uint8_t webBtn = 0;      // button press injected from the web page's Screen tab (an EV_ code)
 static bool ladderMode = false;          // GPIO6 is a 3-button resistor ladder (true) or a single button (false)
 static int viewIdx = -1;                // -1 = last burned card, 0.. = browsing the stored cards with the button
 static uint32_t viewScrollAt = 0;
@@ -464,6 +482,7 @@ static int ladderClass(int mv) {
 
 // returns one event per press; UP and DOWN repeat while held
 static int readButtons() {
+  if (webBtn) { int e = webBtn; webBtn = 0; return e; }
   static uint32_t lastSample = 0, downSince = 0, nextRep = 0;
   static int stable = EV_NONE, cand = EV_NONE, candCnt = 0;
   uint32_t now = millis();
@@ -650,6 +669,15 @@ void setup() {
   server.on("/ui", HTTP_GET, []() {
     uiApply(server.arg("gl"), server.arg("ip"), server.arg("an"), server.arg("play"));
     server.send(200, "application/json", uiJson());
+  });
+  server.on("/screen", HTTP_GET, []() {                      // the OLED buffer as 8 pages of 128 bytes, bit 0 = top pixel of the page
+    server.sendHeader("Cache-Control", "no-store");
+    server.send_P(200, "application/octet-stream", (const char *)oled.getBufferPtr(), 1024);
+  });
+  server.on("/btn", HTTP_GET, []() {
+    String b = server.arg("b");
+    webBtn = b == "up" ? EV_UP : b == "down" ? EV_DOWN : b == "sel" ? EV_SELECT : 0;
+    server.send(200, "text/plain", "ok");
   });
   server.begin();
 }

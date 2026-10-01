@@ -23,12 +23,14 @@ The general programmer repo stays plain (status screen only). Everything here is
 
 ## Display settings (web page, Display tab)
 
-Open the programmer's page (`http://192.168.4.1/` or `http://sstprog.local/`) and pick the **Display** tab:
+Join the WiFi network `SST-PROG` (password `u110cards`), open the programmer's page (`http://192.168.4.1/`, or `http://sstprog.local/` once you have added your home WiFi on the Cards tab) and pick the **Display** tab:
 
 - **Glitch band** on or off.
 - **Show the IP** at the bottom left of the creature screen (small 4x6 text, it cuts into the picture a little).
 - **Idle animation:** *Look around*, *Gasp*, *Look at the rack*, *Random* (picks one every few seconds), or *Off* (blink only). **Play it now** previews the chosen one.
 - **Storage:** flash used and total, percent filled, card count and free space. The OLED status screen shows the same in its bottom line, for example `2 cards 10%/9.8M`.
+
+- **Screen tab:** a live mirror of the OLED (about 3 frames a second) with **Up / Down / Select** buttons that work like the real ones, so you can browse the stored cards and switch between the creature and the status screen from a browser. It pauses while a burn runs, because the WiFi radio is off then.
 
 Settings are saved on the device. From a terminal the same thing is `UI gl=0 ip=1 an=2 play=1` over the serial port (921600 baud), and plain `UI` prints the current state.
 
