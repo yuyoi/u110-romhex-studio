@@ -231,19 +231,25 @@ static File uploadFile;
 static bool uploadOk = true;
 static String uploadMsg;
 
+static size_t uploadBytes = 0;                  // bytes actually written (File.size() can read 0 while the file is still open)
 static void handleUpload() {
   HTTPUpload &up = server.upload();
   if (up.status == UPLOAD_FILE_START) {
-    uploadOk = true; uploadMsg = "";
+    uploadOk = true; uploadMsg = ""; uploadBytes = 0;
     if (jobState == J_ERASING || jobState == J_WRITING) { uploadOk = false; uploadMsg = "burn in progress"; return; }
     if (FFat.freeBytes() < IMAGE_SIZE + 4096) { uploadOk = false; uploadMsg = "storage full - delete a card first"; return; }
     uploadFile = FFat.open(String(DIR_CARDS) + "/" + cleanName(up.filename), "w");
     if (!uploadFile) { uploadOk = false; uploadMsg = "cannot create file"; }
   } else if (up.status == UPLOAD_FILE_WRITE) {
-    if (uploadOk && uploadFile) uploadFile.write(up.buf, up.currentSize);
+    if (uploadOk && uploadFile) {
+      size_t w = uploadFile.write(up.buf, up.currentSize);
+      uploadBytes += w;
+      if (w != up.currentSize) { uploadOk = false; uploadMsg = "write failed after " + String((unsigned)uploadBytes) + " bytes (storage full?)"; }
+    }
   } else if (up.status == UPLOAD_FILE_END) {
-    if (uploadFile) { size_t sz = uploadFile.size(); String p = String(uploadFile.path()); uploadFile.close();
-      if (sz != IMAGE_SIZE) { FFat.remove(p); uploadOk = false; uploadMsg = "file must be exactly 512 KB (got " + String(sz) + ")"; } }
+    if (uploadFile) { String p = String(uploadFile.path()); uploadFile.close();
+      if (uploadOk && uploadBytes != IMAGE_SIZE) { uploadOk = false; uploadMsg = "file must be exactly 512 KB (got " + String((unsigned)uploadBytes) + ")"; }
+      if (!uploadOk) FFat.remove(p); }
   }
 }
 
