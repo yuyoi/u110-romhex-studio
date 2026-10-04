@@ -1,7 +1,7 @@
 # U110 RomHex Studio  (WIP)
 
 <p align="center"><img src="docs/mascot/take_my_money.png" width="260" alt="mascot art by JSW"></p>
-<p align="center"><a href="https://discord.gg/R3CQkFdRtf"><img src="https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white" alt="Join the Discord"></a></p>
+<p align="center"><a href="https://discord.gg/R3CQkFdRtf"><img src="https://img.shields.io/badge/Roland%20Modding-join%20the%20Discord-5865F2?logo=discord&logoColor=white" alt="Join the Roland Modding Discord"></a></p>
 
 Make your own **PCM sample cards for the Roland U-110** (and the other machines that read SN-U110 cards:
 U-20, U-220, D-70, CM-32P, CM-64, MV-30, Rhodes 660/760). This is a free, open replacement for the custom-card
