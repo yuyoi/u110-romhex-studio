@@ -1,21 +1,53 @@
-# Hex Wizard MK2 cards (KiCad 10) — UNTESTED
+# Hex Wizard MK2 card (KiCad 10): proposed prototype, UNTESTED
 
-**None of these boards has been built, fabricated or tested.** The finger order, footprints, power switching and routing are all unverified. Check everything against a real U-110 card before ordering anything.
+![mk2_min top](img/mk2_min_routed_top.png)
+
+**Status: proposed prototype. Nothing here has been fabricated, assembled or tested.** The finger order, footprints, power switching and firmware are all unverified. Check against a real U-110 card before ordering boards.
+
+A Roland U-110 / SN-U110 ROM card that carries its own **SST39SF040 flash** and an **ESP32-S3** (WiFi/USB), so the card can be re-burned without a programmer.
 
 | Board | What it is | State |
 |---|---|---|
-| `mk2_min/` | SST39SF040 (TSOP-32) + ESP32-S3-WROOM-1-N16 on a U-110 card edge. 23 parts: ESP GPIOs straight to the SST bus, one 2N7002 inverts the slot's active-high CS, two diodes OR slot/USB 5 V, an N-FET in the ESP ground leg closes automatically when 5 V appears. | Schematic + PCB, autorouted (Freerouting) with GND pour, **6 connections still open** (A12/A16/D1/D5 ESP links, 2x ESP_GND link) and a few starved-thermal warnings |
-| `mk2_vero/` | No components. All 34 fingers traced to two labeled rows of 2.54 mm holes at the back of the card (outside the synth) plus a blank perf field. Single sided, 0.4 mm tracks, no vias, made for a hobby mill. | PCB only, DRC clean apart from the expected finger edge-clearance |
+| [`mk2_min/`](mk2_min) | The minimum-parts card: 23 parts, SST39SF040 (TSOP-32) + ESP32-S3-WROOM-1-N16, USB-C. | Schematic + fully routed 2-layer PCB (GND pour), KiCad DRC: 0 unconnected, no clearance errors |
+| [`mk2_vero/`](mk2_vero) | No components: all 34 fingers traced to labeled 2.54 mm holes at the back of the card plus a blank perf field. Single sided, made for a hobby mill. | PCB only, DRC clean apart from the expected finger edge-clearance |
 
-Previews are in `img/`. Regenerate with `gen/mk2_min_gen.py` / `gen/mk2_vero_gen.py` (needs KiCad 10 installed for its libraries); regenerating `mk2_min` rebuilds it **unrouted**. `gen/fr_pipeline.py` + a Freerouting jar and Java 25 reproduce the autoroute.
+Previews: [`img/`](img). BOM: [`mk2_min/BOM.csv`](mk2_min/BOM.csv).
 
-## Known caveats
+## mk2_min: how it works
+- ESP GPIOs go **straight to the SST bus** (A0..A18, D0..D7, WE#). No buffers or series resistors, to keep the part count minimal.
+- The slot's CS is **active HIGH**; one 2N7002 (Q1) inverts it into the SST's CE#.
+- Pull-ups on CS, /OE and WE# mean a card that is out of the synth has CE# low, OE# high and WE# high, which is what a burn needs.
+- Two Schottky diodes OR the slot 5 V and USB 5 V into the 5 V rail; an AP2112K makes 3.3 V.
+- Q2 (N-FET in the ESP ground leg, gate on the 5 V rail) switches the ESP on by itself when the card is inserted or USB is plugged in.
+- USB-C is the ESP's native USB. BOOT/user button on IO0, 4-pin header for a 0.96 in I2C OLED.
+
+### Parts (BOM)
+| Qty | Refs | Part |
+|---|---|---|
+| 1 | U1 | SST39SF040-70-4C-TU, 512 KB flash, 8 x 14 mm TSOP-32 |
+| 1 | U2 | ESP32-S3-WROOM-1-N16 (not an octal-PSRAM R8 part) |
+| 1 | U3 | AP2112K-3.3 LDO |
+| 2 | Q1, Q2 | 2N7002 (SOT-23); Q2 may need an AO3400 if the ESP browns out |
+| 2 | D1, D2 | SS14W Schottky (SOD-123) |
+| 1 | J4 | USB-C 16-pin receptacle (HRO TYPE-C-31-M-12 footprint) |
+| 1 | SW1 | SMD tact switch (KMR2 style) |
+| 1 | J2 | 1x4 pin header (OLED) |
+| 2 | C2, C3 | 10 uF 0805 |
+| 3 | C1, C4, C5 | 100 nF x2, 1 uF x1 (0603) |
+| 8 | R1-R7 | 10 k x2, 100 k x3, 5.1 k x2 (0603) |
+| 1 | J1 | card-edge fingers (on the PCB) |
+
+### GPIO map (the firmware has NOT been ported to this)
+A0..A18 = 18, 8, 9, 10, 11, 12, 13, 14, 21, 35, 36, 37, 38, 39, 40, 41, 42, 47, 48; D0..D7 = 1, 2, 4, 5, 6, 7, 15, 16; WE# = 17; OLED SDA/SCL = 3/46; BOOT/user button = 0; USB D-/D+ = 19/20. IO45 is left alone (high at boot can select 1.8 V flash).
+
+## Known caveats and risks
 - **Pin 1 side / finger order is a guess.** Fingers are on the bottom copper, mirrored so pin 1 is on the right when viewed from the top. Card pins 21 and 33 are left open (function unknown); pin 34 SENS is tied to +5 V on the original.
-- **`mk2_min` puts 5 V straight on the ESP pins when the card is in the synth**, and the ESP now powers up there too. That can damage the ESP; there is no isolation by design (minimum parts). Needs N16 (IO35-37 are address lines) and native USB.
-- Q2 is a 2N7002 (about 2-3 ohm); swap for an AO3400 if the ESP browns out on WiFi bursts.
-- The TSOP footprint is the 8 x 14 mm package (`TSOP-I-32_12.4x8mm`); change `SST_FP` for the 8 x 20 mm one.
-- The card outline (53 x 99.5 mm) was measured from a clone card, not a Roland spec; the slot height limit is unknown.
-- Fine-pitch TSOP and 143 vias make `mk2_min` a fab job, not a mill job.
-- The card-edge footprint (`SN-U110_CardEdge.pretty`) is an original drawing from measured contact positions (pitch, width, length); no third-party artwork or routing is included.
+- **The synth's 5 V reaches the ESP pins** whenever the card is in the synth, and the ESP now powers up there too (Q2 closes on the slot 5 V). That can damage the ESP; there is no isolation by design.
+- Q2 is a 2N7002 (about 2-3 ohm on-resistance); swap for an AO3400 if WiFi bursts brown the ESP out.
+- The card outline (53 x 99.5 mm) was measured from a clone card, not a Roland spec; slot height limits and card thickness are unknown, and the fingers need a bevelled edge and a hard-gold or ENIG finish.
+- The TSOP footprint is the 8 x 14 mm package; change `SST_FP` in `gen/mk2_min_gen.py` for the 8 x 20 mm one.
+- Fine-pitch TSOP and 96 vias make `mk2_min` a fab job, not a mill job.
+- The card-edge footprint ([`SN-U110_CardEdge.pretty`](SN-U110_CardEdge.pretty)) is an original drawing from measured contact positions (pitch, width, length); no third-party artwork or routing is included.
 
-GPIO map for `mk2_min`: A0..A18 = 18, 8, 9, 10, 11, 12, 13, 14, 21, 35, 36, 37, 38, 39, 40, 41, 42, 47, 48; D0..D7 = 1, 2, 4, 5, 6, 7, 15, 16; WE# = 17; OLED SDA/SCL = 3/46; BOOT/user button = 0; USB = 19/20. The firmware has not been ported to this pin map.
+## Regenerating
+`gen/mk2_min_gen.py` / `gen/mk2_vero_gen.py` rebuild the projects (KiCad 10 must be installed for its libraries). Regenerating `mk2_min` produces the **unrouted** board; `gen/fr_scratch.py` plus a Freerouting 2.4 jar and Java 25 reproduce the autoroute (GND routed as copper, then a solid GND pour). `gen/verify.py mk2_min` checks schematic and PCB nets agree.

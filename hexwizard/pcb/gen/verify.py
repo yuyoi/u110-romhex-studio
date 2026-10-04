@@ -1,4 +1,4 @@
-"""Check schematic nets == PCB pad nets.  usage: python verify.py mk2_min   (or mk2_fancy)"""
+﻿"""Check schematic nets == PCB pad nets.  usage: python verify.py mk2_min   (or mk2_fancy)"""
 import os
 import subprocess
 import sys
@@ -27,10 +27,11 @@ for fp in find_all(pcb, "footprint"):
     for pad in find_all(fp, "pad"):
         nt = find(pad, "net")
         if nt:
-            pc[(ref, str(pad[1]))] = str(nt[2])
+            pc[(ref, str(pad[1]))] = str(nt[-1])
 bad = [(k, sch.get(k), pc.get(k)) for k in set(sch) | set(pc)
        if sch.get(k) != pc.get(k) and not str(sch.get(k)).startswith("unconnected")]
 print(name, "sch nodes", len(sch), "pcb nodes", len(pc), "real mismatches", len(bad))
 for b in sorted(bad)[:30]:
     print(b)
 os.remove(netfile)
+

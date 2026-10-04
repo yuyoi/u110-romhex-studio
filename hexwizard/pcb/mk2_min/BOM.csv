@@ -1,17 +1,17 @@
-Qty,Refs,Value,Footprint
-1,J1,SN-U110 card edge,SN-U110_CardEdge:SN-U110_CardEdge
-1,U1,SST39SF040-70-4C-TU,Package_SO:TSOP-I-32_12.4x8mm_P0.5mm
-2,C1 C4,100n,Capacitor_SMD:C_0603_1608Metric
-1,Q1,2N7002,Package_TO_SOT_SMD:SOT-23
-2,R2 R1,10k,Resistor_SMD:R_0603_1608Metric
-3,R3 R4 R5,100k,Resistor_SMD:R_0603_1608Metric
-2,D1 D2,SS14W,Diode_SMD:D_SOD-123
-1,U3,AP2112K-3.3,Package_TO_SOT_SMD:SOT-23-5
-2,C2 C3,10u,Capacitor_SMD:C_0805_2012Metric
-1,Q2,2N7002 (AO3400 if it droops),Package_TO_SOT_SMD:SOT-23
-1,J4,USB-C,Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12
-2,R6 R7,5k1,Resistor_SMD:R_0603_1608Metric
-1,U2,ESP32-S3-WROOM-1-N16,RF_Module:ESP32-S3-WROOM-1
-1,C5,1u,Capacitor_SMD:C_0603_1608Metric
-1,SW1,BOOT / USER,Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2
-1,J2,OLED I2C,Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical
+Qty,Refs,Value,Footprint,Suggested part / note
+1,J1,SN-U110 card edge,SN-U110_CardEdge:SN-U110_CardEdge,Board edge fingers (no part)
+1,U1,SST39SF040-70-4C-TU,Package_SO:TSOP-I-32_12.4x8mm_P0.5mm,SST39SF040-70-4C-TU (8x14 mm TSOP-32); the 8x20 mm package needs the 18.4x8 footprint
+1,U2,ESP32-S3-WROOM-1-N16,RF_Module:ESP32-S3-WROOM-1,Espressif ESP32-S3-WROOM-1-N16 (no octal PSRAM: IO35-37 are address lines)
+1,U3,AP2112K-3.3,Package_TO_SOT_SMD:SOT-23-5,AP2112K-3.3 LDO (600 mA)
+1,Q1,2N7002,Package_TO_SOT_SMD:SOT-23,2N7002 CS inverter (slot CS is active HIGH)
+1,Q2,2N7002 (AO3400 if it droops),Package_TO_SOT_SMD:SOT-23,ESP ground switch; use AO3400 if the ESP browns out
+2,D1 D2,SS14W,Diode_SMD:D_SOD-123,Schottky 1 A (SS14W / B5819W) 5 V OR-ing
+1,J4,USB-C,Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12,USB-C 16-pin receptacle (HRO TYPE-C-31-M-12 or equivalent)
+1,SW1,BOOT / USER,Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2,SMD tact switch (C&K KMR2 style)
+1,J2,OLED I2C,Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical,1x4 header for a 0.96 in I2C OLED: GND 3V3 SCL SDA
+2,C2 C3,10u,Capacitor_SMD:C_0805_2012Metric,10 uF 0805
+2,C1 C4,100n,Capacitor_SMD:C_0603_1608Metric,100 nF 0603
+1,C5,1u,Capacitor_SMD:C_0603_1608Metric,1 uF 0603 (EN)
+2,R1 R2,10k,Resistor_SMD:R_0603_1608Metric,10 k 0603 (EN pull-up; CE# pull-up)
+3,R3 R4 R5,100k,Resistor_SMD:R_0603_1608Metric,100 k 0603 (CS, /OE, WE# pull-ups)
+2,R6 R7,5k1,Resistor_SMD:R_0603_1608Metric,5.1 k 0603 (USB-C CC)
