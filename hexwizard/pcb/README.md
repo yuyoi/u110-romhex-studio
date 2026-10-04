@@ -1,8 +1,8 @@
-# Hex Wizard MK2 card (KiCad 10): proposed prototype, UNTESTED
+﻿# Hex Wizard MK2 card (KiCad 10): proposed prototype, UNTESTED
 
 ![mk2_min top](img/mk2_min_routed_top.png)
 
-**Status: proposed prototype. Nothing here has been fabricated, assembled or tested.** The finger order, footprints, power switching and firmware are all unverified. Check against a real U-110 card before ordering boards.
+**Status: proposed prototype. Nothing here has been fabricated, assembled or tested.** The footprints, power switching and firmware are unverified (the finger order follows a working clone card and the long GND finger is confirmed). Check against a real U-110 card before ordering boards.
 
 A Roland U-110 / SN-U110 ROM card that carries its own **SST39SF040 flash** and an **ESP32-S3** (WiFi/USB), so the card can be re-burned without a programmer.
 
@@ -41,7 +41,7 @@ Previews: [`img/`](img). BOM: [`mk2_min/BOM.csv`](mk2_min/BOM.csv).
 A0..A18 = 18, 8, 9, 10, 11, 12, 13, 14, 21, 35, 36, 37, 38, 39, 40, 41, 42, 47, 48; D0..D7 = 1, 2, 4, 5, 6, 7, 15, 16; WE# = 17; OLED SDA/SCL = 3/46; BOOT/user button = 0; USB D-/D+ = 19/20. IO45 is left alone (high at boot can select 1.8 V flash).
 
 ## Known caveats and risks
-- **Pin 1 side / finger order is a guess.** Fingers are on the bottom copper, mirrored so pin 1 is on the right when viewed from the top. Card pins 21 and 33 are left open (function unknown); pin 34 SENS is tied to +5 V on the original.
+- **Finger order** comes from the working clone card's Gerber (all 34 fingers on the bottom copper, long GND finger = pin 32, third from one end, then pin 33 open and pin 34 SENS; pin 1 at the far end, on the right seen from the top with the card edge down) and the long finger being GND is confirmed on a real card. Card pins 21 and 33 are left open (function unknown); pin 34 SENS is tied to +5 V on the original. Still worth a continuity check on a real card before ordering.
 - **The synth's 5 V reaches the ESP pins** whenever the card is in the synth, and the ESP now powers up there too (Q2 closes on the slot 5 V). That can damage the ESP; there is no isolation by design.
 - Q2 is a 2N7002 (about 2-3 ohm on-resistance); swap for an AO3400 if WiFi bursts brown the ESP out.
 - The card outline (53 x 99.5 mm) was measured from a clone card, not a Roland spec; slot height limits and card thickness are unknown, and the fingers need a bevelled edge and a hard-gold or ENIG finish.
@@ -51,3 +51,5 @@ A0..A18 = 18, 8, 9, 10, 11, 12, 13, 14, 21, 35, 36, 37, 38, 39, 40, 41, 42, 47, 
 
 ## Regenerating
 `gen/mk2_min_gen.py` / `gen/mk2_vero_gen.py` rebuild the projects (KiCad 10 must be installed for its libraries). Regenerating `mk2_min` produces the **unrouted** board; `gen/fr_scratch.py` plus a Freerouting 2.4 jar and Java 25 reproduce the autoroute (GND routed as copper, then a solid GND pour). `gen/verify.py mk2_min` checks schematic and PCB nets agree.
+
+
