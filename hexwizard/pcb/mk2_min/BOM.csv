@@ -1,0 +1,17 @@
+Qty,Refs,Value,Footprint
+1,J1,SN-U110 card edge,SN-U110_CardEdge:SN-U110_CardEdge
+1,U1,SST39SF040-70-4C-TU,Package_SO:TSOP-I-32_12.4x8mm_P0.5mm
+2,C1 C4,100n,Capacitor_SMD:C_0603_1608Metric
+1,Q1,2N7002,Package_TO_SOT_SMD:SOT-23
+2,R2 R1,10k,Resistor_SMD:R_0603_1608Metric
+3,R3 R4 R5,100k,Resistor_SMD:R_0603_1608Metric
+2,D1 D2,SS14W,Diode_SMD:D_SOD-123
+1,U3,AP2112K-3.3,Package_TO_SOT_SMD:SOT-23-5
+2,C2 C3,10u,Capacitor_SMD:C_0805_2012Metric
+1,Q2,2N7002 (AO3400 if it droops),Package_TO_SOT_SMD:SOT-23
+1,J4,USB-C,Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12
+2,R6 R7,5k1,Resistor_SMD:R_0603_1608Metric
+1,U2,ESP32-S3-WROOM-1-N16,RF_Module:ESP32-S3-WROOM-1
+1,C5,1u,Capacitor_SMD:C_0603_1608Metric
+1,SW1,BOOT / USER,Button_Switch_SMD:SW_Push_1P1T_NO_CK_KMR2
+1,J2,OLED I2C,Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical

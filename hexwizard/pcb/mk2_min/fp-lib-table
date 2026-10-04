@@ -1,0 +1,1 @@
+(fp_lib_table (version 7) (lib (name "SN-U110_CardEdge") (type "KiCad") (uri "${KIPRJMOD}/../SN-U110_CardEdge.pretty") (options "") (descr "own card edge")))
