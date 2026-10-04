@@ -1,5 +1,7 @@
 # U110 HexWizard
 
+[![Join the Discord](https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/R3CQkFdRtf)
+
 The U-110 flavour of the [ESP32 maskrom programmer](https://github.com/yuyoi/esp32-maskrom-programmer).
 Same hardware and burn firmware, plus a 128x64 OLED that plays a boot animation and then idles as a small
 creature while the programmer is ready. **Working prototype**: the programmer and the OLED animation run on the
