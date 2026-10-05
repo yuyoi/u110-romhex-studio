@@ -48,10 +48,8 @@ and colour-coded key zones on the keyboard. Click a key to hear it exactly as th
 
 ![Card adapter schematic](docs/adapter_schematic.png)
 
-pin 34 ties HIGH to 5V+
-
 *The card-slot adapter used for testing: slot header to SST39SF040, with a CD4069 inverting the active-high card
-select.*
+select. Slot pin 34 (SENS, card detect) is tied high to +5 V.*
 
 > **Warning:** if you program the chip with the ESP32 programmer, **disconnect the chip from the programmer (unplug it from the breadboard / ESP wiring) before you put it in the card slot.** An ESP left wired to the address and data lines loads and clamps the synth's 5 V bus, adds noise, and can back-power the board. Simplest: **lift the ESP off the breadboard so it has no connection at all.** Burn with the chip out of the synth; play with it out of the programmer.
 
@@ -102,6 +100,10 @@ The memory bar shows how much is used.
 
 - **File > Import card .bin**: open any SN-U110 card image (a Roland dump or one of your own) to edit it,
   and extract its samples as WAVs.
+- **File > Import sampler CD (Akai / Roland S-7xx)**: browse an Akai S1000/S1100 or Roland S-760/S-770 sampler CD (`.iso`,
+  `.img`, `.tao`, `.nrg` of the raw disc), pick programs or patches, and they become tones: key ranges, root notes, tuning and loops are kept, stereo L/R pairs
+  are mixed to mono, and the samples are trimmed to fit the card (your own tones are never touched). See `docs/AKAI.md`
+  and `docs/ROLAND.md`.
 - `src/u110card.py` on the command line: `info`, `wavs` (extract samples) and `convert` (MAME card dump to
   burnable connector order).
 - `docs/FORMAT.md`: the reverse-engineered card format.

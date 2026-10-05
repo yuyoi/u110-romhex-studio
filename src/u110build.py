@@ -18,7 +18,8 @@ import u110card as uc
 NATIVE = 32000
 MAX_TONES = 128
 MAX_ZONES = 12            # 11 split points per tone layer
-MAX_SAMPLES = 383         # + the null sample = 384 table entries (0x100-0xFFF)
+MAX_SAMPLES = 254         # tones refer to samples by one byte and 0xFF means "none", so 254 entries + the null sample.
+                          # (the table itself has room for 384 entries, 0x100-0xFFF)
 MAX_LEN = 0x10000
 PEAK = 1800
 LEAD = 3
@@ -327,6 +328,86 @@ def plan(project, cache):
 
 def capacity():
     return sum(b - a for a, b in BANKS) - NULL_LEN
+
+
+def _shrink_step(z, sr, min_s=0.12):
+    """one step smaller for a zone: dict of field updates, or None when it is already as small as it gets"""
+    if z['loop'] == 'off':
+        n = z['end'] - z['start']
+        new = int(n * 0.8)
+        return dict(end=z['start'] + new) if new >= sr * min_s else None
+    body, intro = z['end'] - z['loop_start'], z['loop_start'] - z['start']
+    floor = int(sr * 0.1)
+    if body > floor:                       # shorter loop body, crossfaded so the seam does not click
+        return dict(end=z['loop_start'] + max(int(body * 0.8), floor), xfade_ms=max(z.get('xfade_ms', 0), 12))
+    if intro > sr * 0.02:                  # last resort: eat into the attack
+        return dict(start=z['start'] + int(intro * 0.3))
+    return None
+
+
+def fit_project(project, cache, max_k=6, protect=0):
+    """Make the project fit the card at a rate shift <= max_k: cut the longest samples (one-shots lose their tail,
+    loops get a shorter body), then drop the last tones if that still is not enough. The first `protect` tones are
+    never touched (a project the user already built). -> report lines"""
+    sync_char(project)
+    keep = {akey(z) for t in project['tones'][:protect] for z in t['zones']}
+
+    def sizes():
+        uz = unique_audio(project)
+        out = {}
+        for key, z in uz.items():
+            x, sr = cache.get(z['path'])
+            out[key] = min(MAX_LEN, int((z['end'] - z['start']) * rate_for(zone_k(z, cache, max_k)) / sr) + LEAD + 2)
+        return uz, out
+
+    def shrink(key, uz):
+        if key in keep:
+            return False
+        z = uz[key]
+        up = _shrink_step(z, cache.get(z['path'])[1])
+        if up is None:
+            return False
+        for t in project['tones']:
+            for q in t['zones']:
+                if akey(q) == key:
+                    q.update(up)
+        return True
+
+    def entry_count():                      # the table holds one entry per unique (audio, root)
+        return len({(akey(z), z['root']) for t in project['tones'] for z in t['zones']})
+
+    cut_keys, dropped = set(), []
+    for _ in range(20000):
+        if entry_count() > MAX_SAMPLES and len(project['tones']) > protect:
+            dropped.append(project['tones'].pop()['name'])
+            continue
+        uz, sz = sizes()
+        too_long = [k for k in sz if zone_k(uz[k], cache, max_k) > max_k]     # would be slowed below the target rate
+        if too_long:
+            key = max(too_long, key=sz.get)
+            sh = shrink(key, uz)
+            cut_keys.add(key[0])
+            if sh:
+                continue
+        if pack(list(sz.values())) is not None:
+            break
+        for key in sorted(sz, key=sz.get, reverse=True):
+            if shrink(key, uz):
+                cut_keys.add(key[0])
+                break
+        else:
+            if len(project['tones']) <= protect:
+                break
+            dropped.append(project['tones'].pop()['name'])
+    uz, sz = sizes()
+    rep = []
+    if cut_keys:
+        rep.append('shortened %d sample(s) to fit the card at %.0f Hz' % (len(cut_keys), rate_for(max_k)))
+    if dropped:
+        rep.append('card full (memory or the %d-sample limit), dropped %d tone(s): %s' % (
+            MAX_SAMPLES, len(dropped), ', '.join(d.strip() for d in dropped[::-1])))
+    rep.append('uses %d of %d bytes (%.0f%%)' % (sum(sz.values()), capacity(), 100 * sum(sz.values()) / capacity()))
+    return rep
 
 
 # ---------------------------------------------------------------- build

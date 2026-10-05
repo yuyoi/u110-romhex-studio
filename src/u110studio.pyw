@@ -461,6 +461,7 @@ class Studio(tk.Tk):
         f.add_command(label='Save As...', command=lambda: self.cmd_save(True))
         f.add_separator()
         f.add_command(label='Import Roland / own card .bin...', command=self.cmd_import)
+        f.add_command(label='Import sampler CD (Akai / Roland S-7xx)...', command=self.cmd_import_cd)
         f.add_separator()
         f.add_command(label='Build Card .bin...', accelerator='Ctrl+B', command=self.cmd_build)
         f.add_command(label='Build and Burn to Programmer', accelerator='Ctrl+Shift+B', command=self.cmd_build_burn)
@@ -1038,6 +1039,184 @@ class Studio(tk.Tk):
         w._t = dict(cat=cat, fill=fill, lb=lb, add=add, mode=mode, make=make, picked=picked, steps=steps, zn=zn, lo=lo, secs=secs, info=info)   # for the self-test
         return w
 
+    # ---------------------------------------------------------------- sampler CDs (Akai, Roland S-7xx)
+    RATE_CHOICES = [('Balanced  (22.6 kHz, long samples trimmed)', 6),
+                    ('Keep length  (16 kHz, grittier)', 12),
+                    ('Clean  (32 kHz, short samples)', 0)]
+
+    def akai_dir(self, image):
+        base = os.path.splitext(os.path.basename(image))[0]
+        root = os.path.join(os.path.dirname(self.path), 'cd_wavs') if self.path else \
+            os.path.join(os.path.expanduser('~'), 'Documents', 'U110 RomHex Studio', 'cd_wavs')
+        d = os.path.join(root, ''.join(c if c.isalnum() or c in ' _-' else '_' for c in base)[:40].strip())
+        os.makedirs(d, exist_ok=True)
+        return d
+
+    def open_cd(self, image):
+        """-> ('akai', Image) or ('roland', Disc); raises ValueError when it is neither"""
+        import akai
+        import roland
+        try:
+            return 'akai', akai.Image(image)
+        except ValueError:
+            pass
+        try:
+            return 'roland', roland.Disc(image)
+        except ValueError:
+            raise ValueError('not an Akai S1000/S1100 or Roland S-760/S-770 sampler CD image.\n'
+                             'Other formats (Akai S3000 programs, Roland S-50/S-550, E-mu, Ensoniq) are not supported yet.')
+
+    def cmd_import_cd(self, image=None):
+        """browse a sampler CD image (Akai or Roland S-7xx) and add programs / patches as tones"""
+        if image is None:
+            image = filedialog.askopenfilename(title='Sampler CD / disk image (Akai or Roland)',
+                                               filetypes=[('Disk image', '*.iso *.img *.nrg *.tao *.bin'), ('All', '*.*')])
+        if not image:
+            return
+        try:
+            self.config(cursor='watch'); self.update_idletasks()
+            kind, src = self.open_cd(image)
+        except Exception as e:
+            messagebox.showerror(APP, 'Cannot read this image:\n%s' % e); return
+        finally:
+            self.config(cursor='')
+
+        # one small adapter per format: groups (left list) -> entries (right list) -> import
+        if kind == 'akai':
+            groups = [v for v in src.volumes if v.programs]
+            glabels = ['%-14s %3d' % (v.name[:14], len(v.programs)) for v in groups]
+            gtitle, ptitle, what = 'VOLUMES', 'PROGRAMS', 'Akai'
+
+            def entries(g):
+                out = []
+                for pf in g.programs:
+                    try:
+                        pr = g.program(pf)
+                    except Exception:
+                        pr = None
+                    if pr and pr['keygroups']:
+                        out.append(((g, pf), '%-12s  %2d keygroups' % (pf['name'], len(pr['keygroups'])), len(pr['keygroups'])))
+                return out
+
+            def run(items, out_dir, vel, mix):
+                import akai_import
+                return akai_import.import_programs(items, out_dir, vel=vel, mix_stereo=mix)
+        else:
+            import roland_import
+            groups = roland_import.groups(src)
+            glabels = ['%-6s %4d' % (tag[:6], len(pats)) for tag, pats in groups]
+            gtitle, ptitle, what = 'GROUPS  (%s)' % src.volume.split(':', 1)[-1].strip()[:14], 'PATCHES', 'Roland'
+            self._rol_imp = roland_import.Importer(src, '.')
+
+            def entries(g):
+                out = []
+                for slot, nm in g[1]:
+                    z = len(self._rol_imp.runs(src.param(0x42, slot), nm))
+                    out.append(((slot, nm), '%-16s  %2d zones' % (nm[:16], z), max(1, z)))
+                return out
+
+            def run(items, out_dir, vel, mix):
+                return roland_import.import_patches(src, items, out_dir)
+        if not groups:
+            messagebox.showinfo(APP, 'No programs found on this image.'); return
+
+        w = tk.Toplevel(self); w.title('%s CD  -  %s' % (what, os.path.basename(image))); w.configure(bg=PANEL); w.transient(self)
+        try:
+            dark_titlebar(w)
+        except Exception:
+            pass
+        lbopt = dict(bg=RECESS, fg=TEXT, selectbackground=AMBER, selectforeground='#111', highlightthickness=0,
+                     relief='flat', exportselection=False, height=18)
+        f = ttk.Frame(w, padding=10); f.pack(fill='both', expand=True)
+        ttk.Label(f, text=gtitle, style='Silk.TLabel').grid(row=0, column=0, sticky='w')
+        ttk.Label(f, text='%s  (each becomes tone(s); Ctrl/Shift = several)' % ptitle, style='Silk.TLabel').grid(row=0, column=1, sticky='w', padx=(10, 0))
+        vl = tk.Listbox(f, width=30, **lbopt); vl.grid(row=1, column=0, sticky='ns')
+        pl = tk.Listbox(f, width=40, selectmode='extended', **lbopt); pl.grid(row=1, column=1, sticky='nsew', padx=(10, 0))
+        for lab in glabels:
+            vl.insert('end', lab)
+        progs = []                                    # (payload, label, zone count)
+        info = ttk.Label(f, text='', style='Dim.TLabel'); info.grid(row=2, column=0, columnspan=2, sticky='w', pady=(6, 0))
+
+        def show_group(*_):
+            s = vl.curselection()
+            if not s:
+                return
+            progs.clear(); pl.delete(0, 'end')
+            for payload, label, nz in entries(groups[s[0]]):
+                progs.append((payload, label, nz))
+                pl.insert('end', label)
+            upd()
+
+        def upd(*_):
+            sel = pl.curselection()
+            kgs = sum(progs[i][2] for i in sel)
+            info.config(text='%d selected, %d zones -> about %d tone(s).  Card: %d / %d tones used' % (
+                len(sel), kgs, sum((progs[i][2] + B.MAX_ZONES - 1) // B.MAX_ZONES for i in sel),
+                len(self.proj['tones']), B.MAX_TONES))
+
+        def all_progs():
+            pl.selection_set(0, 'end'); upd()
+
+        vl.bind('<<ListboxSelect>>', show_group); pl.bind('<<ListboxSelect>>', upd)
+        of = ttk.Labelframe(f, text=' IMPORT ', padding=6); of.grid(row=3, column=0, columnspan=2, sticky='ew', pady=(8, 0))
+        vel = tk.StringVar(value='100'); mix = tk.BooleanVar(value=True); rate = tk.StringVar(value=self.RATE_CHOICES[0][0])
+        ak = kind == 'akai'
+        ttk.Label(of, text='velocity layer').grid(row=0, column=0, sticky='w')
+        sp = ttk.Spinbox(of, from_=1, to=127, textvariable=vel, width=5); sp.grid(row=0, column=1, sticky='w', padx=6)
+        ttk.Label(of, text='(layered samples: the one sounding at this velocity is used)' if ak else
+                  '(Roland patches: the first sample of each partial is used)', style='Dim.TLabel').grid(row=0, column=2, sticky='w')
+        cb_mix = ttk.Checkbutton(of, text='mix stereo L/R pairs to mono', variable=mix); cb_mix.grid(row=1, column=0, columnspan=3, sticky='w', pady=(4, 0))
+        if not ak:
+            sp.state(['disabled']); cb_mix.state(['disabled'])
+        ttk.Label(of, text='fit to card').grid(row=2, column=0, sticky='w', pady=(4, 0))
+        ttk.Combobox(of, textvariable=rate, values=[c[0] for c in self.RATE_CHOICES], state='readonly', width=40).grid(row=2, column=1, columnspan=2, sticky='w', padx=6, pady=(4, 0))
+        ttk.Label(of, text='New tones are added after yours; your existing tones are never trimmed.', style='Dim.TLabel').grid(row=3, column=0, columnspan=3, sticky='w', pady=(4, 0))
+        bb = ttk.Frame(f); bb.grid(row=4, column=0, columnspan=2, sticky='ew', pady=(10, 0))
+        addbtn = ttk.Button(bb, text='Add to card', style='Build.TButton')
+        addbtn.pack(side='right')
+        ttk.Button(bb, text='Close', command=w.destroy).pack(side='right', padx=8)
+        ttk.Button(bb, text='Select all', command=all_progs).pack(side='left')
+
+        def add():
+            sel = pl.curselection()
+            if not sel:
+                messagebox.showinfo(APP, 'Select one or more entries first.', parent=w); return
+            if len(self.proj['tones']) >= B.MAX_TONES:
+                messagebox.showwarning(APP, 'The card already holds %d tones.' % B.MAX_TONES, parent=w); return
+            try:
+                v_ = max(1, min(127, int(vel.get())))
+            except ValueError:
+                v_ = 100
+            k = dict(self.RATE_CHOICES)[rate.get()]
+            items = [progs[i][0] for i in sel]
+            addbtn.state(['disabled'])
+            self.status('Reading %d %s entr%s...' % (len(items), what, 'y' if len(items) == 1 else 'ies'))
+            self.prog.config(mode='indeterminate'); self.prog.start(12)
+            threading.Thread(target=self._cd_worker, args=(run, items, self.akai_dir(image), v_, mix.get(), k, addbtn), daemon=True).start()
+
+        addbtn.config(command=add)
+        vl.selection_set(0); show_group()
+        w._t = dict(vl=vl, pl=pl, add=add, show_vol=show_group, vel=vel, mix=mix, rate=rate, vols=groups, progs=progs, upd=upd, kind=kind)  # for the self-test
+        return w
+
+    cmd_import_akai = cmd_import_cd                   # old name
+
+    def _cd_worker(self, run, items, out_dir, vel, mix, max_k, btn):
+        import copy
+        try:
+            tones, rep = run(items, out_dir, vel, mix)
+            n0 = len(self.proj['tones'])
+            proj = dict(self.proj)
+            proj['tones'] = copy.deepcopy(self.proj['tones']) + tones
+            if len(proj['tones']) > B.MAX_TONES:
+                rep.append('card holds %d tones: %d imported tone(s) did not fit and were left out' % (B.MAX_TONES, len(proj['tones']) - B.MAX_TONES))
+                proj['tones'] = proj['tones'][:B.MAX_TONES]
+            rep += B.fit_project(proj, self.cache, max_k=max_k, protect=n0)
+            self.q.put(('akai_done', proj['tones'], rep, n0, btn))
+        except Exception as e:
+            traceback.print_exc()
+            self.q.put(('akai_fail', 'Import failed:\n%s' % e, btn))
+
     # ---------------------------------------------------------------- zones
     def zone_add(self):
         files = filedialog.askopenfilenames(title='Add WAV files', filetypes=[('Audio', '*.wav *.aif *.aiff *.flac'), ('All', '*.*')])
@@ -1291,6 +1470,26 @@ class Studio(tk.Tk):
                     self.prog['value'] = 100
                     self.status('Burned')
                     messagebox.showinfo(APP, 'Burn finished.\n\n%s\n\nThe programmer does not read the chip back: verify it in your chip programmer, or try the card in the synth.' % m[1])
+                elif m[0] == 'akai_done':
+                    _, tones, rep, n0, btn = m
+                    self.prog.stop(); self.prog.config(mode='determinate'); self.prog['value'] = 0
+                    try:
+                        btn.state(['!disabled'])
+                    except tk.TclError:
+                        pass
+                    self.proj['tones'] = tones
+                    self.mark(); self.refresh_all(min(n0, max(0, len(tones) - 1)))
+                    self.status('Added %d tone(s) from Akai CD' % (len(tones) - n0))
+                    shown = rep if len(rep) <= 14 else rep[:11] + ['... and %d more notes' % (len(rep) - 12)] + rep[-1:]
+                    messagebox.showinfo(APP, 'Added %d tone(s) from the Akai CD.\n\n%s' % (len(tones) - n0, '\n'.join(shown)))
+                elif m[0] == 'akai_fail':
+                    self.prog.stop(); self.prog.config(mode='determinate'); self.prog['value'] = 0
+                    try:
+                        m[2].state(['!disabled'])
+                    except tk.TclError:
+                        pass
+                    self.status('Failed')
+                    messagebox.showerror(APP, m[1])
                 elif m[0] == 'error':
                     self.prog['value'] = 0
                     self.status('Failed')
