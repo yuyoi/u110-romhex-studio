@@ -51,9 +51,9 @@ and colour-coded key zones on the keyboard. Click a key to hear it exactly as th
 *The card-slot adapter used for testing: slot header to SST39SF040, with a CD4069 inverting the active-high card
 select. Slot pin 34 (SENS, card detect) is tied high to +5 V.*
 
-*Not drawn in the schematic: if you still hear occasional clicks or glitches, a small capacitor on the inverter
-helped on the author's adapter (22 pF from CD4069 pin 2, the output of the gate that inverts the card select, to
-GND). Your adapter may differ. Details and untested ideas (value, placement, two caps, type) are in
+*Optional (bottom right in the schematic): if you still hear occasional clicks or glitches, a small capacitor on
+the inverter helped on the author's adapter (22 pF from CD4069 pin 2, the output of the gate that inverts the card
+select, to GND). Your adapter may differ. Details and untested ideas (value, placement, two caps, type) are in
 [docs/HARDWARE.md](docs/HARDWARE.md#glitches-decouple-the-logic).*
 
 > **Warning:** if you program the chip with the ESP32 programmer, **disconnect the chip from the programmer (unplug it from the breadboard / ESP wiring) before you put it in the card slot.** An ESP left wired to the address and data lines loads and clamps the synth's 5 V bus, adds noise, and can back-power the board. Simplest: **lift the ESP off the breadboard so it has no connection at all.** Burn with the chip out of the synth; play with it out of the programmer.
