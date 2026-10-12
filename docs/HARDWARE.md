@@ -52,6 +52,11 @@ sounds show it first. What fixed a real adapter:
   GND**, placed at the spot where touching the chip made the glitches stop. Your adapter may differ. The inverter
   type, which gate you use, the cable, the card slot and the flash chip all change how the line behaves, so find
   your own spot by touching the chip's pins with a finger while it plays and listening for the glitches to stop, then try a small cap there.
+  **Untested ideas for a better result** (the single 22 pF above is the only thing confirmed so far):
+  - *Value:* sweep the value and keep the smallest one that stops the glitches.
+  - *Placement:* try the gate's output, its input, and both.
+  - *Two caps:* one on the input and one on the output, with different values.
+  - *Type:* compare cap types (for example C0G/NP0 against X7R ceramic) at the same value.
 - A 74HCT04 is pin-compatible with the CD4069 and much faster, but it is untested here. Sharper edges can ring
   more, so try the capacitor first.
 
