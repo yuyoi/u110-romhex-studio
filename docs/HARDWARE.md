@@ -48,6 +48,10 @@ sounds show it first. What fixed a real adapter:
   (the CE# line) to GND with short leads. Treat it as damping for ringing on that line. Increase only a little
   (47-100 pF), because too much slows the edge and brings back read errors. Exact values are not characterised
   yet.
+  On the author's adapter the fix was **22 pF from CD4069 pin 2 (the output of the gate that inverts slot CS) to
+  GND**, placed at the spot where touching the chip made the noise stop. Your adapter may differ. The inverter
+  type, which gate you use, the cable, the card slot and the flash chip all change how the line behaves, so find
+  your own spot by touching the chip's pins with a finger while it plays, then try a small cap there.
 - A 74HCT04 is pin-compatible with the CD4069 and much faster, but it is untested here. Sharper edges can ring
   more, so try the capacitor first.
 
