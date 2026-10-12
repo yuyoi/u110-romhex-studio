@@ -42,7 +42,14 @@ sounds show it first. What fixed a real adapter:
 - **Tie every unused inverter input to GND.** Leave the unused outputs open. Floating CMOS inputs oscillate
   and inject noise.
 - **100 nF ceramic capacitors** across the power pins, right at each chip: inverter 14-7, flash 32-16.
-- Optional: use a 74HCT04 instead of a CD4069. It's pin-compatible and about 10x faster.
+- **A small capacitor on the inverter helps with leftover clicks and glitches.** On one adapter, occasional
+  noise during busy playback (lots of drum hits) went away when the CD4069 was touched, and a capacitor on the
+  inverter reduces it the same way. Put a small cap (tens of pF, for example 22 pF) from the inverter output
+  (the CE# line) to GND with short leads. Treat it as damping for ringing on that line. Increase only a little
+  (47-100 pF), because too much slows the edge and brings back read errors. Exact values are not characterised
+  yet.
+- A 74HCT04 is pin-compatible with the CD4069 and much faster, but it is untested here. Sharper edges can ring
+  more, so try the capacitor first.
 
 ## Byte orders, briefly
 
