@@ -65,7 +65,8 @@ select, to GND). Your adapter may differ. Details and untested ideas (value, pla
 
 ## Quick start (Windows)
 
-1. Run **`U110RomHexStudio.exe`**. No install is needed. The exe is unsigned, so Windows may show "Windows
+1. Download **`U110RomHexStudio.exe`** from the [latest release](https://github.com/yuyoi/u110-romhex-studio/releases/latest)
+   and run it (check it against `SHA256SUMS.txt` if you like). No install is needed. The exe is unsigned, so Windows may show "Windows
    protected your PC": click **More info > Run anyway**. It takes a few seconds to start.
    Or, from source: install Python 3.10+, run `pip install -r src/requirements.txt`, then `run_from_source.bat`.
 2. **File > Open Project** and pick `examples/demo.u110proj` to see a finished card, or start fresh:
