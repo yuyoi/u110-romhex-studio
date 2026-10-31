@@ -149,7 +149,7 @@ class LEDMeter(tk.Canvas):
 
 
 def new_project():
-    return dict(card_name='MY CARD 01', card_no=13, rate='auto', tones=[])
+    return dict(card_name='MY CARD', card_no=13, rate='auto', tones=[])
 
 
 def simulate(d, ls, mode, step, seconds):
@@ -517,10 +517,12 @@ class Studio(tk.Tk):
         top = ttk.Frame(self, padding=(12, 2, 12, 6))
         top.pack(fill='x')
         ttk.Label(top, text='CARD NAME', style='Silk.TLabel').pack(side='left')
+        # fixed prefix: the D-70 rejects cards whose name does not start with it
+        ttk.Label(top, text=B.CARD_PREFIX).pack(side='left', padx=(6, 0))
         self.v_card = tk.StringVar()
-        vcmd = (self.register(lambda s: len(s) <= 16), '%P')
-        e = ttk.Entry(top, textvariable=self.v_card, width=18, validate='key', validatecommand=vcmd)
-        e.pack(side='left', padx=(6, 16))
+        vcmd = (self.register(lambda s: len(s) <= 8), '%P')
+        e = ttk.Entry(top, textvariable=self.v_card, width=10, validate='key', validatecommand=vcmd)
+        e.pack(side='left', padx=(0, 16))
         self.v_card.trace_add('write', lambda *a: (self.set_proj('card_name', self.v_card.get()), self.update_lcd()))
         ttk.Label(top, text='CARD #', style='Silk.TLabel').pack(side='left')
         ttk.Label(top, text='13').pack(side='left', padx=(6, 16))
@@ -655,7 +657,9 @@ class Studio(tk.Tk):
 
     def refresh_all(self, tone_i=None, zone_i=None):
         self._loading = True
-        self.v_card.set(self.proj.get('card_name', ''))
+        # older projects may hold longer names: cut to the 8 chars that go on the card
+        self.proj['card_name'] = B.card_label(self.proj.get('card_name', '')).rstrip()
+        self.v_card.set(self.proj['card_name'])
         r = self.proj.get('rate', 'auto')
         self.v_rate.set(self.rate_vals[0 if r == 'auto' else int(r) + 1])
         self._loading = False
@@ -810,7 +814,7 @@ class Studio(tk.Tk):
     def update_lcd(self):
         """row 1: card + memory, row 2: selected tone / zone (40 columns)"""
         used, cap = getattr(self, 'used', 0), B.capacity()
-        name = (self.proj.get('card_name') or '').upper()[:16]
+        name = (B.CARD_PREFIX + B.card_label(self.proj.get('card_name'))).upper()
         pct = 'FULL!' if not getattr(self, 'fits', True) else '%3d%%' % min(100, round(100 * used / cap))
         l1 = '%-16s MEM %s %5dHZ' % (name, pct, round(B.rate_for(getattr(self, 'k', 0))))
         t, z = self.cur_tone(), self.cur_zone()

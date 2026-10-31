@@ -9,12 +9,17 @@ tools that never shipped.
 
 > **Made by JunkSmithWizard (JSW) together with Claude (Anthropic's AI).** Claude wrote the code and did the format analysis
 > (descrambling, sample coding, tables). JSW built the hardware, burned and tested every card on a real U-110,
-> and made the debugging calls that cracked it: the known-good D-70 ROM control and the CD4069 noise fix.
+> and made the debugging calls that cracked it: the known-good D-70 ROM control, the CD4069 noise fix, and
+> pointing the D-70 debugging at its card check, which turned up the `SN-U110-` name rule.
 > Reverse-engineered and shipped in one day.
 
 Drop in WAV files, set root notes, key ranges and loops, press **Build**. You get a 512 KB image to burn on a
 flash chip (e.g. SST39SF040) sitting in a card-slot adapter. Tested on a real U-110: custom multisampled,
-looping and one-shot tones play correctly.
+looping and one-shot tones play correctly. Also tested on a real D-70.
+
+> **D-70 users:** the D-70 only accepts a card whose name starts with `SN-U110-`. The app always writes that
+> prefix, so you pick the last 8 characters. Cards built with older versions of the app (any name) work on the
+> U-110 but are not seen by the D-70. Rebuild them.
 
 ## Demo
 
@@ -93,6 +98,7 @@ select, to GND). Your adapter may differ. Details and untested ideas (value, pla
 | | |
 |---|---|
 | Card size | 512 KB, about 496 KB for audio (~15 s at the native 32 kHz) |
+| Card name | `SN-U110-` + 8 characters of your choice (the D-70 needs the prefix) |
 | Tones | 128 per card |
 | Key zones | 12 per tone |
 | One sample | max 64 KB: 2 s at 32 kHz. Longer samples are automatically stored at a lower rate and stay in tune |
@@ -128,7 +134,7 @@ This is an early release. It works, and it's tested on a real U-110, but expect 
 - **A reprogrammable card:** an RP2040 (or similar) on a custom PCB, either as a card or fitted inside the
   unit, so you can load new sounds over USB without pulling and burning chips.
 - Dual-layer, velocity-switch and drum-kit tone types.
-- Confirmed support on the U-20, U-220 and D-70.
+- Confirmed support on the U-20 and U-220.
 
 Ideas, bug reports and test results are very welcome. Open an issue.
 

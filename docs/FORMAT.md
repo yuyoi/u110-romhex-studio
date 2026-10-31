@@ -21,8 +21,11 @@ pins see a scrambled one.
 | raw | content |
 |---|---|
 | 00-0F | `RolandU-110 N` `B1` `S` `AC`: fixed magic, compared by the firmware |
-| 10-1F | card name, 16 chars (e.g. `SN-U110-13 1.00 `) |
-| 20 | card number |
+| 10-1F | card name, 16 chars (e.g. `SN-U110-13 1.00 `). **The D-70 checks 10-17**: it must be `SN-U110-` (or `SN-SPLA-`), anything else = no card. The U-110 takes any name. The app always writes `SN-U110-` + your 8-char name |
+| 20 | card number (the D-70 uses it minus 1 as the card ID) |
+
+The header has no checksum: on the D-70 only the magic and the name prefix decide whether a card is seen
+(D-70 ROM code at 0x4226).
 
 ## Proper layout
 

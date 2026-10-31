@@ -63,6 +63,20 @@ def clean_name(s, n):
     return s[:n].ljust(n)
 
 
+# the D-70 only accepts a card whose header name (raw 0x10-0x17) is one of these (its ROM at 0x4226);
+# the U-110 takes any name
+CARD_PREFIX = 'SN-U110-'
+CARD_PREFIXES = ('SN-U110-', 'SN-SPLA-')
+
+
+def card_label(s):
+    """the user's part of the card name: 8 chars, any SN-U110-/SN-SPLA- prefix dropped"""
+    s = (s or '').strip()
+    if s.upper().startswith(CARD_PREFIXES):
+        s = s[len(CARD_PREFIX):]
+    return clean_name(s.strip(), 8)
+
+
 def rate_for(k):
     return NATIVE * 2 ** (-k / 12)
 
@@ -503,7 +517,7 @@ def build(project, cache, progress=None):
 
     header = bytearray(b'\xff' * uc.HEADER_RAW)
     header[0:16] = MAGIC
-    header[16:32] = clean_name(project.get('card_name', 'MY CARD'), 16).encode('ascii')
+    header[16:32] = (CARD_PREFIX + card_label(project.get('card_name', 'MY CARD'))).encode('ascii')
     header[32] = project.get('card_no', 13)
     conn = uc.to_d70(pr, bytes(header))
     card = uc.to_raw(pr, bytes(header))
@@ -543,7 +557,7 @@ def import_card(path, out_dir):
         fn = os.path.join(out_dir, 'smp%03d_%s.wav' % (s['i'], note_name(s['note'])))
         sf.write(fn, pcm.astype(np.int16), NATIVE)
         wavs[s['start']] = fn
-    proj = dict(card_name=raw[16:32].decode('latin1').strip(), card_no=13, rate='auto', tones=[])
+    proj = dict(card_name=card_label(raw[16:32].decode('latin1')).strip(), card_no=13, rate='auto', tones=[])
     for t in ts:
         if t['type'] >= 0x80:
             continue  # rhythm set tones: not supported yet
