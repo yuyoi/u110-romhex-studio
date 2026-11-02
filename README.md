@@ -9,13 +9,13 @@ tools that never shipped.
 
 > **Made by JunkSmithWizard (JSW) together with Claude (Anthropic's AI).** Claude wrote the code and did the format analysis
 > (descrambling, sample coding, tables). JSW built the hardware, burned and tested every card on a real U-110,
-> and made the debugging calls that cracked it: the known-good D-70 ROM control, the CD4069 noise fix, and
+> tested cards on a D-70 and a Rhodes 660, and made the debugging calls that cracked it: the known-good D-70 ROM control, the CD4069 noise fix, and
 > pointing the D-70 debugging at its card check, which turned up the `SN-U110-` name rule.
 > Reverse-engineered and shipped in one day.
 
 Drop in WAV files, set root notes, key ranges and loops, press **Build**. You get a 512 KB image to burn on a
 flash chip (e.g. SST39SF040) sitting in a card-slot adapter. Tested on a real U-110: custom multisampled,
-looping and one-shot tones play correctly. Also tested on a real D-70.
+looping and one-shot tones play correctly. Also tested on a real D-70 and a real Rhodes 660.
 
 > **D-70 users:** the D-70 only accepts a card whose name starts with `SN-U110-`. The app always writes that
 > prefix, so you pick the last 8 characters. Cards built with older versions of the app (any name) work on the
